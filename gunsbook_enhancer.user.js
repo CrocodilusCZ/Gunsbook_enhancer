@@ -3,7 +3,7 @@
 // @namespace    http://tampermonkey.net/
 // @version      5.0 Simplified
 // @description  Rozbalí příspěvky/komentáře a zvýrazní nejnovější komentář.
-// @author       Simplified Copilot
+// @author       Redsnake
 // @match        https://gunsbook.com/*
 // @grant        none
 // @run-at       document-idle

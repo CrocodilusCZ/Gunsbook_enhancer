@@ -15,4 +15,4 @@ Skript pro vylepšení stránky Gunsbook.com - rozbalování komentářů, zvýr
 ## Instalace
 
 1. Nainstalujte doplněk Tampermonkey do vašeho prohlížeče
-2. Klikněte na [tento odkaz](https://github.com/CrocodilusCZ/Gunsbook_enhancer/raw/main/gunsbook_enhancer.user.js) pro instalaci skriptu
+2. Klikněte na [tento odkaz](https://github.com/CrocodilusCZ/Gunsbook_enhancer/raw/master/gunsbook_enhancer.user.js) pro instalaci skriptu
