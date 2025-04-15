@@ -1,12 +1,14 @@
 // ==UserScript==
-// @name         GunsBook Simple Highlighter
-// @namespace    http://tampermonkey.net/
-// @version      5.0 Simplified
-// @description  Rozbalí příspěvky/komentáře a zvýrazní nejnovější komentář.
+// @name         GunsBook Enhancer
+// @namespace    https://github.com/CrocodilusCZ/
+// @version      6.0
+// @description  Rozbalí příspěvky/komentáře, zvýrazní nejnovější komentář a vylepšuje zobrazení obrázků
 // @author       Redsnake
 // @match        https://gunsbook.com/*
 // @grant        none
 // @run-at       document-idle
+// @updateURL    https://raw.githubusercontent.com/CrocodilusCZ/Gunsbook_enhancer/master/gunsbook_enhancer.user.js
+// @downloadURL  https://raw.githubusercontent.com/CrocodilusCZ/Gunsbook_enhancer/master/gunsbook_enhancer.user.js
 // ==/UserScript==
 
 (function() {
