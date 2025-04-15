@@ -1,3 +1,4 @@
+
 // ==UserScript==
 // @name         GunsBook Enhancer
 // @namespace    https://github.com/CrocodilusCZ/
@@ -40,28 +41,34 @@ const CONFIG = {
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
     },
-        parseTimeToMs: (timeText) => {
-            if (!timeText) return Infinity;
-            timeText = timeText.toLowerCase();
-            
-            // Speciální případ pro "právě teď"
-            if (timeText.includes('just now')) return 0;
-            
-            // Získáme celé číslo pomocí regulárního výrazu
-            const match = timeText.match(/(\d+)/);
-            const value = match ? parseInt(match[0]) : 1;
-            
-            // Výpočet milisekund podle jednotky času
-            if (timeText.includes('second')) return value * 1000;
-            if (timeText.includes('minute')) return value * 60 * 1000;
-            if (timeText.includes('hour')) return value * 60 * 60 * 1000;
-            if (timeText.includes('day')) return value * 24 * 60 * 60 * 1000;
-            if (timeText.includes('yesterday')) return 1 * 24 * 60 * 60 * 1000;
-            
-            // Přidáme logování pro diagnostiku
-            Utils.log(`Nepodařilo se rozpoznat formát času: "${timeText}", používám Infinity`);
-            return Infinity; // Pro týdny, měsíce atd.
-        },
+        // Vylepšená funkce pro zpracování časových údajů
+parseTimeToMs: (timeText) => {
+    if (!timeText) return Infinity;
+    timeText = timeText.toLowerCase();
+    
+    // Speciální případ pro "právě teď"
+    if (timeText.includes('just now')) return 0;
+    
+    // Speciální případy pro "an hour", "a minute" atd. bez čísla
+    if (timeText === 'an hour' || timeText === 'a hour') return 1 * 60 * 60 * 1000;
+    if (timeText === 'a minute' || timeText === 'a min') return 1 * 60 * 1000;
+    if (timeText === 'a second' || timeText === 'a sec') return 1 * 1000;
+    
+    // Získáme celé číslo pomocí regulárního výrazu
+    const match = timeText.match(/(\d+)/);
+    const value = match ? parseInt(match[0]) : 1;
+    
+    // Výpočet milisekund podle jednotky času
+    if (timeText.includes('second')) return value * 1000;
+    if (timeText.includes('minute') || timeText.includes('min')) return value * 60 * 1000;
+    if (timeText.includes('hour')) return value * 60 * 60 * 1000;
+    if (timeText.includes('day')) return value * 24 * 60 * 60 * 1000;
+    if (timeText.includes('yesterday')) return 1 * 24 * 60 * 60 * 1000;
+    
+    // Přidáme logování pro diagnostiku
+    Utils.log(`Nepodařilo se rozpoznat formát času: "${timeText}", používám Infinity`);
+    return Infinity; // Pro týdny, měsíce atd.
+},
         isInViewport: (el) => {
             const rect = el.getBoundingClientRect();
             return rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth;
@@ -216,119 +223,234 @@ hideUnwantedNotifications: function() {
             }
         },
 
-        // Zvýrazní nejnovější komentář v daném příspěvku - KOMPLETNÍ PŘEPIS
-        highlightNewestInPost: function(post) {
-            // Reset předchozího zvýraznění
-            post.querySelectorAll('.gb-highlighted-comment').forEach(el => {
-                el.classList.remove('gb-highlighted-comment');
-                el.style.backgroundColor = '';
-                el.style.borderLeft = '';
-                el.style.borderRadius = '';
-            });
-            post.querySelectorAll('.gb-highlighted-time').forEach(el => {
-                el.classList.remove('gb-highlighted-time');
-                el.style.color = '';
-                el.style.fontWeight = '';
+ // Zvýrazní nejnovější komentář v daném příspěvku - KOMPLETNÍ PŘEPIS
+highlightNewestInPost: function(post) {
+    // Reset předchozího zvýraznění
+    post.querySelectorAll('.gb-highlighted-comment').forEach(el => {
+        el.classList.remove('gb-highlighted-comment');
+        el.style.backgroundColor = '';
+        el.style.borderLeft = '';
+        el.style.borderRadius = '';
+    });
+    post.querySelectorAll('.gb-highlighted-time').forEach(el => {
+        el.classList.remove('gb-highlighted-time');
+        el.style.color = '';
+        el.style.fontWeight = '';
+    });
+    
+    // NOVÁ FUNKCE: Kontrola počtu komentářů v příspěvku
+    const commentElements = post.querySelectorAll('[data-testid="comment"]');
+    // Pokud je pouze jeden komentář, neprovádíme zvýrazňování
+    if (commentElements.length <= 1) {
+        Utils.log(`Příspěvek má pouze ${commentElements.length} komentář(e), přeskakuji zvýrazňování`);
+        return;
+    }
+    
+    // Sbíráme všechny časové údaje nehledě na strukturu
+    let allTimeSpans = [];
+    
+    // VYLEPŠENÍ 1: Lepší selektory pro časové údaje v komentářích (včetně zanořených)
+    const timeSelectors = [
+        'span[role="link"]',              // Obecný selektor pro všechny časové odkazy
+        '.ltr-t8y68f',                    // Standardní formát času v komentářích
+        '.ltr-1rud4fp',                   // Formát času v zanořených komentářích
+        '[aria-label*="20"]'              // Časové údaje s aria-label obsahujícím datum
+    ];
+    
+    // VYLEPŠENÍ 2: Najdeme a zpracujeme VŠECHNY časové údaje pomocí více selektorů
+    post.querySelectorAll(timeSelectors.join(', ')).forEach(span => {
+        const text = span.textContent.trim();
+        
+        // DŮLEŽITÉ: Přeskočit časové údaje v záhlaví příspěvku
+        // Kontrola, zda span je v záhlaví příspěvku nebo ne v komentáři
+        const isPostHeader = !!span.closest('.jss130, .jss131, .ltr-lfrj0c, .jss144');
+        
+        // VYLEPŠENÍ 3: Lepší detekce, že je element součástí komentáře
+        // Zahrnujeme více možných tříd a struktur pro komentáře
+        const isInComment = !!span.closest('[data-testid="comment"], .ltr-rwjg63, .ltr-9tq2jr, .ltr-c7xrli, .ltr-gq6jkq, .MuiBox-root.ltr-j7qwjs, .ltr-1rud4fp');
+        
+        // Přeskočit, pokud jde o záhlaví nebo není v komentáři
+        if (isPostHeader || !isInComment) {
+            return;
+        }
+        
+        // VYLEPŠENÍ 4: Vylepšený regulární výraz pro detekci časových údajů - včetně formátu "an hour"
+        if (text.match(/(^|\s)(\d+|an?|just)\s*(second|sec|minute|min|hour|day|week|month|year|now)/i)) {
+            const timeMs = Utils.parseTimeToMs(text);
+            
+            // Uložíme si všechny potřebné informace
+            allTimeSpans.push({
+                span: span,
+                text: text,
+                timeMs: timeMs,
+                isNested: !!span.closest('.ltr-gq6jkq, .MuiBox-root.ltr-j7qwjs, .ltr-1rud4fp') // Detekce zanořeného komentáře
             });
             
-            // Sbíráme všechny časové údaje nehledě na strukturu
-            let allTimeSpans = [];
-            
-            // Najdeme VŠECHNY span elementy s časovým údajem - bez ohledu na úroveň zanoření
-            post.querySelectorAll('span[role="link"]').forEach(span => {
-                const text = span.textContent.trim();
-                
-                // Detekce časového údaje pomocí regex
-                if (text.match(/\d+\s*(second|minute|hour|day|week|month|year|just now)/i)) {
-                    const timeMs = Utils.parseTimeToMs(text);
-                    
-                    // Uložíme si všechny potřebné informace
-                    allTimeSpans.push({
-                        span: span,
-                        text: text,
-                        timeMs: timeMs
-                    });
-                }
-            });
-            
-            // Pokud jsme našli časové údaje
-            if (allTimeSpans.length > 0) {
-                // Seřadíme od nejnovějšího (nejmenší čas)
-                allTimeSpans.sort((a, b) => a.timeMs - b.timeMs);
-                
-                // Nejnovější časový údaj
-                const newestTimeSpan = allTimeSpans[0].span;
-                const newestTime = allTimeSpans[0].text;
-                
-                Utils.logImportant(`Nalezen nejnovější čas: ${newestTime}, ms: ${allTimeSpans[0].timeMs}`);
-                
-                // Zvýrazníme čas
-                newestTimeSpan.classList.add('gb-highlighted-time');
-                newestTimeSpan.style.color = CONFIG.HIGHLIGHT_TEXT_COLOR;
-                newestTimeSpan.style.fontWeight = 'bold';
-                
-                // ALGORITMUS PRO NALEZENÍ KOMENTÁŘE K ZVÝRAZNĚNÍ
-                // Začneme od časového span elementu a postupujeme nahoru k obsahu komentáře
-                
-                // 1. Najdeme nejbližší kontejner komentáře
-                const commentContainer = newestTimeSpan.closest('[data-testid="comment"]');
-                
-                if (commentContainer) {
-                    // 2. Zkusíme nalézt obsah komentáře - postupujeme od konkrétnějších k obecnějším
-                    let contentToHighlight = null;
-                    
-                    // Priority pořadí pro nalezení správného obsahu
-                    const selectors = [
-                        '.ltr-9tq2jr',                              // Standardní kontejner obsahu
-                        '.ltr-rwjg63',                              // Kontejner pro odpovědi
-                        '.ltr-c7xrli',                              // Alternativní kontejner obsahu
-                        '.MuiTypography-body1.ltr-1r1u03s',         // Typický textový obsah
-                        '.ltr-1bakpcr'                              // Další možná varianta
-                    ];
-                    
-                    // Postupně procházíme selektory a hledáme první vyhovující
-                    for (const selector of selectors) {
-                        const candidate = commentContainer.querySelector(selector);
-                        if (candidate) {
-                            contentToHighlight = candidate;
-                            Utils.logImportant(`Našel jsem obsah komentáře pomocí selektoru: ${selector}`);
-                            break;
-                        }
-                    }
-                    
-                    // Pokud jsme nenašli žádný specifický obsah, použijeme celý kontejner komentáře
-                    if (!contentToHighlight) {
-                        contentToHighlight = commentContainer;
-                        Utils.logImportant('Žádný specifický obsah nenalezen, použiji celý kontejner komentáře');
-                    }
-                    
-                    // Zvýrazníme obsah komentáře
-                    contentToHighlight.classList.add('gb-highlighted-comment');
-                    contentToHighlight.style.backgroundColor = CONFIG.HIGHLIGHT_COLOR;
-                    contentToHighlight.style.borderLeft = CONFIG.HIGHLIGHT_BORDER;
-                    contentToHighlight.style.borderRadius = '8px';
-                    
-                    // Pokud zdůraznění není na první pohled viditelné, zkusíme zvýraznit také nadřazený element
-                    if (contentToHighlight.offsetWidth < 50 || contentToHighlight.offsetHeight < 30) {
-                        const parentElement = contentToHighlight.parentElement;
-                        if (parentElement) {
-                            parentElement.classList.add('gb-highlighted-comment');
-                            parentElement.style.backgroundColor = CONFIG.HIGHLIGHT_COLOR;
-                            parentElement.style.borderLeft = CONFIG.HIGHLIGHT_BORDER;
-                            parentElement.style.borderRadius = '8px';
-                            Utils.logImportant('Zvýrazňuji také nadřazený element pro lepší viditelnost');
-                        }
-                    }
-
-                    // Přidejme logování DOM cesty pro diagnostiku
-                    Utils.logImportant(`DOM cesta zvýrazněného elementu: ${this.getDomPath(contentToHighlight)}`);
-                } else {
-                    Utils.logImportant('Nenalezen kontejner komentáře');
-                }
+            // Pro ladění vypíšeme více informací o nalezených časech
+            Utils.log(`Nalezen čas: ${text}, ms: ${timeMs}, zanořený: ${!!span.closest('.ltr-gq6jkq, .MuiBox-root.ltr-j7qwjs, .ltr-1rud4fp')}`);
+        }
+    });
+    
+   // Pokud jsme našli časové údaje v komentářích
+if (allTimeSpans.length > 0) {
+    // Určíme pozici v DOM pro každé časové razítko - vyšší index = později v DOM = pravděpodobně novější
+    allTimeSpans.forEach(item => {
+        item.domIndex = Array.from(post.querySelectorAll('*')).indexOf(item.span);
+    });
+    
+    // Seřadíme od nejnovějšího (nejmenší čas) s preferencí zanořených a později přidaných komentářů
+    allTimeSpans.sort((a, b) => {
+        // Nejprve porovnáme podle času
+        const timeCompare = a.timeMs - b.timeMs;
+        
+        if (timeCompare === 0) {
+            // Při stejném čase preferujeme zanořené komentáře
+            if (a.isNested && b.isNested) {
+                // Oba jsou zanořené - vybereme ten, který je později v DOM (větší index)
+                return b.domIndex - a.domIndex;
             } else {
-                Utils.logImportant(`Nenalezeny žádné komentáře k zvýraznění v příspěvku ${post.getAttribute('data-eid')}`);
+                // Pokud jen jeden je zanořený, preferujeme ho
+                return b.isNested - a.isNested;
             }
-        },
+        }
+        
+        return timeCompare;
+    });
+    
+    // Nejnovější časový údaj
+    const newestTimeSpan = allTimeSpans[0].span;
+    const newestTime = allTimeSpans[0].text;
+    const isNested = allTimeSpans[0].isNested;
+    
+    Utils.logImportant(`Nalezen nejnovější čas: ${newestTime}, ms: ${allTimeSpans[0].timeMs}, zanořený: ${isNested}, DOM index: ${allTimeSpans[0].domIndex}`);
+        
+        // Zvýrazníme čas
+        newestTimeSpan.classList.add('gb-highlighted-time');
+        newestTimeSpan.style.color = CONFIG.HIGHLIGHT_TEXT_COLOR;
+        newestTimeSpan.style.fontWeight = 'bold';
+        
+        // ALGORITMUS PRO NALEZENÍ KOMENTÁŘE K ZVÝRAZNĚNÍ
+        let contentToHighlight = null;
+        
+        if (isNested) {
+            // VYLEPŠENÍ 5: Lepší algoritmus pro zanořené komentáře
+            // 1. Zkusíme nejprve najít kontejner komentáře přes nadřazené elementy - více možností
+            const nestedContainer = newestTimeSpan.closest('.ltr-9tq2jr, .ltr-c7xrli, .ltr-1n160ra');
+            
+            if (nestedContainer) {
+                // 2. Najdeme kontejner s obsahem v zanořeném komentáři
+                contentToHighlight = nestedContainer.querySelector('.ltr-rwjg63') || nestedContainer;
+            } else {
+                // Alternativní cesta - jdeme od času nahoru a pak k obsahu
+                // Najdeme nejbližší box s časem a jménem
+                const timeBox = newestTimeSpan.closest('.MuiBox-root.ltr-tw4vmx');
+                
+                if (timeBox && timeBox.nextElementSibling) {
+                    // Další element by měl obsahovat obsah komentáře
+                    contentToHighlight = timeBox.nextElementSibling.querySelector('.ltr-rwjg63') || 
+                                       timeBox.nextElementSibling;
+                }
+                
+                // Pokud stále nemáme obsah, zkusíme jiné možnosti
+                if (!contentToHighlight) {
+                    // Jdeme nahoru více úrovní
+                    const parentComment = newestTimeSpan.closest('.ltr-gq6jkq, .MuiBox-root.ltr-j7qwjs');
+                    if (parentComment) {
+                        contentToHighlight = parentComment.querySelector('.ltr-9tq2jr') || parentComment;
+                    }
+                }
+            }
+        } else {
+            // HLAVNÍ KOMENTÁŘ - standardní cesta
+            // 1. Najdeme nejbližší kontejner komentáře
+            const commentContainer = newestTimeSpan.closest('[data-testid="comment"]');
+            
+            if (commentContainer) {
+                // 2. Zkusíme nalézt obsah komentáře - postupujeme od konkrétnějších k obecnějším
+                const selectors = [
+                    '.ltr-9tq2jr',                              // Standardní kontejner obsahu
+                    '.ltr-rwjg63',                              // Kontejner pro odpovědi
+                    '.ltr-c7xrli',                              // Alternativní kontejner obsahu
+                    '.MuiTypography-body1.ltr-1r1u03s',         // Typický textový obsah
+                    '.ltr-1bakpcr'                              // Další možná varianta
+                ];
+                
+                // Postupně procházíme selektory a hledáme první vyhovující
+                for (const selector of selectors) {
+                    const candidate = commentContainer.querySelector(selector);
+                    if (candidate) {
+                        contentToHighlight = candidate;
+                        Utils.logImportant(`Našel jsem obsah komentáře pomocí selektoru: ${selector}`);
+                        break;
+                    }
+                }
+                
+                // Pokud jsme nenašli žádný specifický obsah, použijeme celý kontejner komentáře
+                if (!contentToHighlight) {
+                    contentToHighlight = commentContainer;
+                    Utils.logImportant('Žádný specifický obsah nenalezen, použiji celý kontejner komentáře');
+                }
+            }
+        }
+        
+        
+       // Pokud jsme našli obsah k zvýraznění, zvýrazníme ho
+if (contentToHighlight) {
+    contentToHighlight.classList.add('gb-highlighted-comment');
+    contentToHighlight.style.backgroundColor = CONFIG.HIGHLIGHT_COLOR;
+    contentToHighlight.style.borderLeft = CONFIG.HIGHLIGHT_BORDER;
+    contentToHighlight.style.borderRadius = '8px';
+    // Přidáme větší padding pro zvětšení zvýrazněné oblasti
+    contentToHighlight.style.padding = '8px 12px';
+    contentToHighlight.style.margin = '2px 0';
+    
+    // Pokud zdůraznění není na první pohled viditelné, zkusíme zvýraznit také nadřazený element
+    if (contentToHighlight.offsetWidth < 50 || contentToHighlight.offsetHeight < 30) {
+        const parentElement = contentToHighlight.parentElement;
+        if (parentElement) {
+            parentElement.classList.add('gb-highlighted-comment');
+            parentElement.style.backgroundColor = CONFIG.HIGHLIGHT_COLOR;
+            parentElement.style.borderLeft = CONFIG.HIGHLIGHT_BORDER;
+            parentElement.style.borderRadius = '8px';
+            // Přidáme také padding pro rodiče
+            parentElement.style.padding = '8px 12px';
+            parentElement.style.margin = '2px 0';
+            Utils.logImportant('Zvýrazňuji také nadřazený element pro lepší viditelnost');
+        }
+    }
+            
+            // Přidejme logování DOM cesty pro diagnostiku
+            Utils.logImportant(`DOM cesta zvýrazněného elementu: ${this.getDomPath(contentToHighlight)}`);
+        } else {
+            Utils.logImportant('Nenalezen kontejner pro zvýraznění obsahu komentáře');
+            
+            // Záložní řešení - zkusíme najít nějaký kontejner pomocí rodičovských elementů
+            let parent = newestTimeSpan.parentElement;
+            let attempts = 0;
+            
+            // Postupujeme nahoru až 5 kroků
+            while (parent && attempts < 5) {
+                if (parent.classList.contains('ltr-rwjg63') || 
+                    parent.classList.contains('ltr-9tq2jr') || 
+                    parent.classList.contains('ltr-c7xrli')) {
+                    parent.classList.add('gb-highlighted-comment');
+                    parent.style.backgroundColor = CONFIG.HIGHLIGHT_COLOR;
+                    parent.style.borderLeft = CONFIG.HIGHLIGHT_BORDER;
+                    parent.style.borderRadius = '8px';
+                    // Přidáme větší padding pro zvětšení zvýrazněné oblasti
+                    parent.style.padding = '8px 12px';
+                    parent.style.margin = '2px 0';
+                    Utils.logImportant('Nalezen rodičovský element k zvýraznění jako záložní řešení');
+                    break;
+                }
+                parent = parent.parentElement;
+                attempts++;
+            }
+        }
+    } else {
+        Utils.logImportant(`Nenalezeny žádné komentáře k zvýraznění v příspěvku ${post.getAttribute('data-eid')}`);
+    }
+},
         
         // Pomocná funkce pro získání DOM cesty elementu (pro ladění)
         getDomPath: function(element) {
@@ -630,21 +752,22 @@ addToggleControl: function() {
     Object.assign(eyeButton.style, {
         position: 'fixed',
         bottom: '80px',
-        right: '10px',
+        right: '40px', // Posunuto o 30px doleva
         width: '32px',
         height: '32px',
         borderRadius: '50%',
-        backgroundColor: 'rgba(46, 204, 113, 0.8)',
+        backgroundColor: 'rgba(50, 60, 50, 0.85)', // Taktická tmavě zelená
         color: 'white',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
         zIndex: '10000',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
         transition: 'transform 0.2s, background-color 0.2s',
         fontSize: '18px'
     });
+    
     eyeButton.innerHTML = '👁️'; // Emoji oka
     eyeButton.title = 'Zobrazit/skrýt ovládací panel';
     
@@ -657,8 +780,9 @@ addToggleControl: function() {
         isPanelVisible = true;
         panel.style.display = 'flex';
         panel.style.opacity = '1';
-        eyeButton.style.backgroundColor = 'rgba(46, 204, 113, 1)';
+        eyeButton.style.backgroundColor = 'rgba(75, 83, 68, 0.95)'; // Vojenská zelená při aktivaci
         eyeButton.style.transform = 'scale(1.1)';
+    
         
         // Zrušíme existující timeout, pokud existuje
         if (hideTimeout) {
@@ -683,7 +807,7 @@ addToggleControl: function() {
             panel.style.display = 'none';
         }, 300); // 300ms pro dokončení animace
         
-        eyeButton.style.backgroundColor = 'rgba(46, 204, 113, 0.8)';
+        eyeButton.style.backgroundColor = 'rgba(50, 60, 50, 0.85)'; // Návrat k původní barvě
         eyeButton.style.transform = 'scale(1)';
         
         Utils.log('Panel skryt');
@@ -762,11 +886,11 @@ addToggleControl: function() {
     // Tlačítko pro zapnutí/vypnutí celého skriptu
     const mainToggle = createButton(
         'GB Highlighter: ON', 
-        'rgba(46, 204, 113, 0.8)',
+        'rgba(56, 62, 48, 0.95)', // Olive drab - vojenská zelená
         () => {
             this.state.isDisabled = !this.state.isDisabled;
             mainToggle.textContent = `GB Highlighter: ${this.state.isDisabled ? 'OFF' : 'ON'}`;
-            mainToggle.style.backgroundColor = this.state.isDisabled ? 'rgba(231, 76, 60, 0.8)' : 'rgba(46, 204, 113, 0.8)';
+            mainToggle.style.backgroundColor = this.state.isDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(56, 62, 48, 0.95)'; // Tmavě červená při vypnutí
             Utils.logImportant(`Skript ${this.state.isDisabled ? 'vypnut' : 'zapnut'} uživatelem.`);
             
             // Aktualizovat stav ostatních tlačítek
@@ -802,26 +926,26 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
     // Tlačítko pro zapnutí/vypnutí automatického rozbalování komentářů
     const expandToggle = createButton(
         '🔄 Auto rozbalování: ON', 
-        'rgba(52, 152, 219, 0.8)',
+        'rgba(42, 55, 70, 0.95)', // Tmavě modrá - navy blue
         () => {
             if (this.state.isDisabled) return;
             this.state.expandingDisabled = !this.state.expandingDisabled;
             expandToggle.textContent = `🔄 Auto rozbalování: ${this.state.expandingDisabled ? 'OFF' : 'ON'}`;
-            expandToggle.style.backgroundColor = this.state.expandingDisabled ? 'rgba(231, 76, 60, 0.8)' : 'rgba(52, 152, 219, 0.8)';
+            expandToggle.style.backgroundColor = this.state.expandingDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(42, 55, 70, 0.95)';
             Utils.logImportant(`Automatické rozbalování ${this.state.expandingDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
         },
         'Zapnout/vypnout automatické rozbalování komentářů'
     );
     
    // Upravené tlačítko pro zapnutí/vypnutí zvýrazňování komentářů
-const highlightToggle = createButton(
+   const highlightToggle = createButton(
     '🔍 Zvýrazňování: ON', 
-    'rgba(155, 89, 182, 0.8)',
+    'rgba(65, 60, 50, 0.95)', // FDE - Flat Dark Earth (písková)
     () => {
         if (this.state.isDisabled) return;
         this.state.highlightingDisabled = !this.state.highlightingDisabled;
         highlightToggle.textContent = `🔍 Zvýrazňování: ${this.state.highlightingDisabled ? 'OFF' : 'ON'}`;
-        highlightToggle.style.backgroundColor = this.state.highlightingDisabled ? 'rgba(231, 76, 60, 0.8)' : 'rgba(155, 89, 182, 0.8)';
+        highlightToggle.style.backgroundColor = this.state.highlightingDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(65, 60, 50, 0.95)';
         Utils.logImportant(`Automatické zvýrazňování ${this.state.highlightingDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
         
         // Pokud jsme právě zapnuli zvýrazňování, spustíme ho hned
@@ -846,17 +970,17 @@ const highlightToggle = createButton(
 );
     
     // Přepracované tlačítko pro zapnutí/vypnutí skrývání notifikací
-const notifButton = createButton(
-    '🔕 Skrývání notifikací: ON', 
-    'rgba(243, 156, 18, 0.8)',
-    () => {
+    const notifButton = createButton(
+        '🔕 Skrývání notifikací: ON', 
+        'rgba(70, 50, 40, 0.95)', // Hnědá - wood finish
+        () => {
         if (this.state.isDisabled) return;
         // Přepneme stav
         this.state.notificationsHidingDisabled = !this.state.notificationsHidingDisabled;
         
         // Aktualizujeme text a barvu tlačítka
         notifButton.textContent = `🔕 Skrývání notifikací: ${this.state.notificationsHidingDisabled ? 'OFF' : 'ON'}`;
-        notifButton.style.backgroundColor = this.state.notificationsHidingDisabled ? 'rgba(231, 76, 60, 0.8)' : 'rgba(243, 156, 18, 0.8)';
+        notifButton.style.backgroundColor = this.state.notificationsHidingDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(70, 50, 40, 0.95)';
         
         Utils.logImportant(`Automatické skrývání notifikací ${this.state.notificationsHidingDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
         
@@ -876,7 +1000,7 @@ const notifButton = createButton(
 // Nové tlačítko pro zapnutí/vypnutí vylepšení obrázků
 const imageEnhanceToggle = createButton(
     '🖼️ Vylepšení obrázků: ON', 
-    'rgba(236, 64, 122, 0.8)',
+    'rgba(60, 60, 65, 0.95)', // Gunmetal šedá
     () => {
         if (this.state.isDisabled) return;
         // Přepneme stav
@@ -884,7 +1008,7 @@ const imageEnhanceToggle = createButton(
         
         // Aktualizujeme text a barvu tlačítka
         imageEnhanceToggle.textContent = `🖼️ Vylepšení obrázků: ${this.state.imageEnhancementDisabled ? 'OFF' : 'ON'}`;
-        imageEnhanceToggle.style.backgroundColor = this.state.imageEnhancementDisabled ? 'rgba(231, 76, 60, 0.8)' : 'rgba(236, 64, 122, 0.8)';
+        imageEnhanceToggle.style.backgroundColor = this.state.imageEnhancementDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(60, 60, 65, 0.95)';
         
         Utils.logImportant(`Vylepšení obrázků ${this.state.imageEnhancementDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
         
@@ -897,8 +1021,8 @@ const imageEnhanceToggle = createButton(
 
 // Tlačítko pro zapnutí/vypnutí debug režimu
 const debugToggle = createButton(
-    '🐛 Debug: OFF',  // Změněno z "ON" na "OFF" aby odpovídalo výchozímu nastavení
-    'rgba(231, 76, 60, 0.8)',  // Změněno na červenou barvu pro výchozí stav vypnuto
+    '🐛 Debug: OFF',
+    'rgba(40, 40, 40, 0.95)', // Taktická černá pro vypnutý stav
     () => {
         // Přepneme obě hodnoty najednou
         CONFIG.DEBUG = !CONFIG.DEBUG;
@@ -906,7 +1030,7 @@ const debugToggle = createButton(
         
         // Aktualizujeme text a barvu tlačítka
         debugToggle.textContent = `🐛 Debug: ${CONFIG.DEBUG ? 'ON' : 'OFF'}`;
-        debugToggle.style.backgroundColor = CONFIG.DEBUG ? 'rgba(41, 128, 185, 0.8)' : 'rgba(231, 76, 60, 0.8)';
+        debugToggle.style.backgroundColor = CONFIG.DEBUG ? 'rgba(70, 35, 35, 0.95)' : 'rgba(40, 40, 40, 0.95)'; // Tmavě červená při zapnutí
         
         if (CONFIG.IMPORTANT_LOGS) {
             Utils.logImportant(`Debug režim ${CONFIG.DEBUG ? 'zapnut' : 'vypnut'} uživatelem.`);
@@ -918,33 +1042,33 @@ const debugToggle = createButton(
 // Vylepšený slogan se solidním bílým pozadím
 const sloganLink = document.createElement('a');
 sloganLink.href = 'https://www.reloading-tracker.cz';
-sloganLink.target = '_blank'; // Otevírá odkaz v novém okně/záložce
+sloganLink.target = '_blank';
 sloganLink.textContent = 'Sparked by Reloading tracker and gunpowder';
 Object.assign(sloganLink.style, {
-    color: '#2ecc71', // Výrazná zelená barva
+    color: '#4d5d53', // Vojenská zelená pro text
     textDecoration: 'none',
-    fontSize: '14px', // Větší velikost písma
+    fontSize: '14px',
     fontWeight: 'bold',
     textAlign: 'center',
     padding: '8px',
     marginBottom: '8px',
-    textShadow: '1px 1px 3px rgba(0, 0, 0, 0.4)', // Lehčí stín pro bílé pozadí
+    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.2)',
     fontFamily: '"Trebuchet MS", Arial, sans-serif',
     display: 'block',
-    opacity: '1', // Plná viditelnost
+    opacity: '1',
     transition: 'all 0.3s ease',
-    backgroundColor: '#ffffff', // Solidní bílé pozadí
-    borderRadius: '5px',
-    border: '1px solid #2ecc71', // Zelený rámeček pro lepší kontrast
-    boxShadow: '0 2px 4px rgba(0,0,0,0.15)' // Lehký stín pro 3D efekt
+    backgroundColor: '#e5e5e0', // Taktická šedá
+    borderRadius: '3px', // Méně zakulacené rohy - více "taktický" vzhled
+    border: '1px solid #4d5d53', // Vojenská zelená pro rámeček
+    boxShadow: '0 2px 3px rgba(0,0,0,0.2)'
 });
 
 // Efekty při najetí myší - výraznější
 sloganLink.addEventListener('mouseenter', () => {
-    sloganLink.style.color = '#27ae60'; // Tmavší zelená při najetí
-    sloganLink.style.transform = 'scale(1.05)';
-    sloganLink.style.boxShadow = '0 4px 8px rgba(0,0,0,0.2)'; // Výraznější stín
-    sloganLink.style.borderColor = '#27ae60'; // Tmavší zelený rámeček
+    sloganLink.style.color = '#2e3a2e'; // Tmavší zelená při najetí
+    sloganLink.style.transform = 'scale(1.02)'; // Menší efekt zvětšení
+    sloganLink.style.boxShadow = '0 3px 5px rgba(0,0,0,0.3)';
+    sloganLink.style.borderColor = '#2e3a2e';
 });
 
 sloganLink.addEventListener('mouseleave', () => {
