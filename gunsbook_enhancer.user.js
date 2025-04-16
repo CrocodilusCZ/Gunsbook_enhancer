@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         GunsBook Enhancer
 // @namespace    https://github.com/CrocodilusCZ/
-// @version      6.0
+// @version      1.0.0
 // @description  Rozbalí příspěvky/komentáře, zvýrazní nejnovější komentář a vylepšuje zobrazení obrázků
 // @author       Redsnake
 // @match        https://gunsbook.com/*
@@ -1821,7 +1821,7 @@ const debugToggle = createButton(
 const sloganLink = document.createElement('a');
 sloganLink.href = 'https://www.reloading-tracker.cz';
 sloganLink.target = '_blank';
-sloganLink.textContent = 'Powered by Reloading Tracker';
+sloganLink.textContent = 'Sparked by Reloading Tracker';
 Object.assign(sloganLink.style, {
     color: '#444',
     textDecoration: 'none',
