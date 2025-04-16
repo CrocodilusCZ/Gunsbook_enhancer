@@ -17,17 +17,20 @@
 
     // --- Konfigurace ---
    
-const CONFIG = {
-    CHECK_INTERVAL: 3000,           // Interval pro kontrolu a zvýraznění (ms)
-    SCROLL_DEBOUNCE: 500,           // Čekání po doskrolování (ms)
-    MAX_EXPAND_ITERATIONS: 5,       // Max pokusů o rozbalení v jednom cyklu
-    EXPAND_DELAY: 750,              // Pauza mezi kliknutími na rozbalení (ms)
-    HIGHLIGHT_COLOR: 'rgba(46, 204, 113, 0.15)',
-    HIGHLIGHT_BORDER: '3px solid #2ecc71',
-    HIGHLIGHT_TEXT_COLOR: '#2ecc71',
-    DEBUG: false,                   // Pro běžné debug výpisy - výchozí stav vypnuto
-    IMPORTANT_LOGS: false           // Pro důležité výpisy - výchozí stav vypnuto
-};
+    const CONFIG = {
+        CHECK_INTERVAL: 3000,           // Interval pro kontrolu a zvýraznění (ms)
+        SCROLL_DEBOUNCE: 500,           // Čekání po doskrolování (ms)
+        MAX_EXPAND_ITERATIONS: 5,       // Max pokusů o rozbalení v jednom cyklu
+        EXPAND_DELAY: 750,              // Pauza mezi kliknutími na rozbalení (ms)
+        // Načtení uložené barvy zvýraznění nebo použití výchozí
+        HIGHLIGHT_COLOR: localStorage.getItem('gb_highlight_color') || 'rgba(46, 204, 113, 0.15)',
+        // Načtení uložené barvy okraje nebo použití výchozí
+        HIGHLIGHT_BORDER: `3px solid ${localStorage.getItem('gb_highlight_border_color') || '#2ecc71'}`,
+        // Načtení uložené barvy textu nebo použití výchozí
+        HIGHLIGHT_TEXT_COLOR: localStorage.getItem('gb_highlight_text_color') || '#2ecc71',
+        DEBUG: false,                   // Pro běžné debug výpisy - výchozí stav vypnuto
+        IMPORTANT_LOGS: false           // Pro důležité výpisy - výchozí stav vypnuto
+    };
 
     // --- Pomocné Funkce ---
     const Utils = {
@@ -90,7 +93,26 @@ const CONFIG = {
 
 
 },
+         // Nová metoda pro nastavení barvy zvýraznění
+    setHighlightColors: function(bgColor, borderColor, textColor) {
+        // Uložíme nové hodnoty do konfigurace
+        CONFIG.HIGHLIGHT_COLOR = bgColor;
+        CONFIG.HIGHLIGHT_BORDER = `3px solid ${borderColor}`;
+        CONFIG.HIGHLIGHT_TEXT_COLOR = textColor;
         
+        // Uložíme hodnoty do localStorage pro budoucí načtení
+        localStorage.setItem('gb_highlight_color', bgColor);
+        localStorage.setItem('gb_highlight_border_color', borderColor);
+        localStorage.setItem('gb_highlight_text_color', textColor);
+        
+        Utils.logImportant(`Nastaveny nové barvy zvýraznění: BG=${bgColor}, Border=${borderColor}, Text=${textColor}`);
+        
+        // Přeaplikujeme zvýraznění s novými barvami, pokud je aktivní
+        if (!this.state.isDisabled && !this.state.highlightingDisabled) {
+            this.highlightVisiblePosts();
+        }
+    },
+
         
 
 // Vylepšená funkce pro skrytí nežádoucích notifikací s přesnějšími kritérii
@@ -984,6 +1006,295 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
         },
         'Zapnout/vypnout automatické rozbalování komentářů'
     );
+
+    // Tlačítko pro nastavení barev
+    const colorButton = createButton(
+        '🎨 Barva zvýraznění', 
+        'rgba(45, 80, 100, 0.95)', // Modrá barva pro tlačítko
+        () => {
+            if (this.state.isDisabled) return;
+            
+            // Vytvořme overlay s color pickery pro výběr barev
+            const colorOverlay = document.createElement('div');
+            Object.assign(colorOverlay.style, {
+                position: 'fixed',
+                top: '0',
+                left: '0',
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: '10001',
+                flexDirection: 'column'
+            });
+            
+            // Vytvoříme kontejner pro color pickers
+            const colorContainer = document.createElement('div');
+            Object.assign(colorContainer.style, {
+                backgroundColor: 'white',
+                padding: '20px',
+                borderRadius: '8px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '15px',
+                width: '300px'
+            });
+            
+            // Titulek
+            const title = document.createElement('h3');
+            title.textContent = 'Nastavení barev zvýraznění';
+            Object.assign(title.style, {
+                margin: '0 0 15px 0',
+                textAlign: 'center',
+                color: '#333'
+            });
+            
+            // Funkce pro vytvoření jednoho color pickeru
+            function createColorPicker(labelText, initialColor, id) {
+                const container = document.createElement('div');
+                container.style.display = 'flex';
+                container.style.flexDirection = 'column';
+                container.style.gap = '5px';
+                
+                const label = document.createElement('label');
+                label.textContent = labelText;
+                label.htmlFor = id;
+                label.style.fontSize = '14px';
+                label.style.fontWeight = 'bold';
+                
+                const inputRow = document.createElement('div');
+                inputRow.style.display = 'flex';
+                inputRow.style.alignItems = 'center';
+                inputRow.style.gap = '10px';
+                
+                const colorPreview = document.createElement('div');
+                colorPreview.style.width = '30px';
+                colorPreview.style.height = '30px';
+                colorPreview.style.backgroundColor = initialColor;
+                colorPreview.style.border = '1px solid #ccc';
+                colorPreview.style.borderRadius = '4px';
+                
+                const input = document.createElement('input');
+                input.type = 'color';
+                input.id = id;
+                input.value = initialColor;
+                Object.assign(input.style, {
+                    width: 'calc(100% - 50px)',
+                    height: '30px',
+                    border: '1px solid #ccc',
+                    borderRadius: '4px'
+                });
+                
+                // Aktualizace náhledu při změně barvy
+                input.addEventListener('input', () => {
+                    colorPreview.style.backgroundColor = input.value;
+                });
+                
+                inputRow.appendChild(colorPreview);
+                inputRow.appendChild(input);
+                
+                container.appendChild(label);
+                container.appendChild(inputRow);
+                
+                return { container, input };
+            }
+            
+            // Extrahujeme barvy z CONFIG
+            const currentBgColor = CONFIG.HIGHLIGHT_COLOR;
+            const borderColor = CONFIG.HIGHLIGHT_BORDER.split(' ')[2] || '#2ecc71';
+            const textColor = CONFIG.HIGHLIGHT_TEXT_COLOR;
+            
+            // Pro pozadí s transparentností potřebujeme speciální pojetí
+            const bgOpacityContainer = document.createElement('div');
+            bgOpacityContainer.style.display = 'flex';
+            bgOpacityContainer.style.flexDirection = 'column';
+            bgOpacityContainer.style.gap = '5px';
+            
+            const bgLabel = document.createElement('label');
+            bgLabel.textContent = 'Barva pozadí';
+            bgLabel.style.fontSize = '14px';
+            bgLabel.style.fontWeight = 'bold';
+            
+            const bgInputRow = document.createElement('div');
+            bgInputRow.style.display = 'flex';
+            bgInputRow.style.alignItems = 'center';
+            bgInputRow.style.gap = '10px';
+            
+            const bgColorPreview = document.createElement('div');
+            bgColorPreview.style.width = '30px';
+            bgColorPreview.style.height = '30px';
+            bgColorPreview.style.backgroundColor = currentBgColor;
+            bgColorPreview.style.border = '1px solid #ccc';
+            bgColorPreview.style.borderRadius = '4px';
+            
+            // Extrahování barvy a opacity z rgba
+            let bgColorHex = '#2ecc71';
+            let bgOpacity = 0.15;
+            
+            if (currentBgColor.startsWith('rgba')) {
+                const parts = currentBgColor.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                if (parts && parts.length === 5) {
+                    const r = parseInt(parts[1]);
+                    const g = parseInt(parts[2]);
+                    const b = parseInt(parts[3]);
+                    bgOpacity = parseFloat(parts[4]);
+                    
+                    // Převod RGB na HEX
+                    bgColorHex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+                }
+            }
+            
+            const bgColorInput = document.createElement('input');
+            bgColorInput.type = 'color';
+            bgColorInput.value = bgColorHex;
+            bgColorInput.style.width = '70%';
+            bgColorInput.style.height = '30px';
+            
+            const opacityInput = document.createElement('input');
+            opacityInput.type = 'range';
+            opacityInput.min = '0';
+            opacityInput.max = '100';
+            opacityInput.value = bgOpacity * 100;
+            opacityInput.style.width = '100%';
+            opacityInput.style.marginTop = '10px';
+            
+            const opacityLabel = document.createElement('div');
+            opacityLabel.textContent = `Průhlednost: ${Math.round(bgOpacity * 100)}%`;
+            opacityLabel.style.fontSize = '12px';
+            opacityLabel.style.marginTop = '5px';
+            
+            // Aktualizace náhledu a štítku při změně
+            const updateBgPreview = () => {
+                const color = bgColorInput.value;
+                const opacity = opacityInput.value / 100;
+                opacityLabel.textContent = `Průhlednost: ${Math.round(opacity * 100)}%`;
+                
+                // Konvertujeme hex na rgb pro použití s průhledností
+                const r = parseInt(color.substr(1, 2), 16);
+                const g = parseInt(color.substr(3, 2), 16);
+                const b = parseInt(color.substr(5, 2), 16);
+                
+                bgColorPreview.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+            };
+            
+            bgColorInput.addEventListener('input', updateBgPreview);
+            opacityInput.addEventListener('input', updateBgPreview);
+            
+            bgInputRow.appendChild(bgColorPreview);
+            bgInputRow.appendChild(bgColorInput);
+            
+            bgOpacityContainer.appendChild(bgLabel);
+            bgOpacityContainer.appendChild(bgInputRow);
+            bgOpacityContainer.appendChild(opacityInput);
+            bgOpacityContainer.appendChild(opacityLabel);
+            
+            // Vytvoření pickerů pro okraj a text
+            const borderPicker = createColorPicker('Barva okraje', borderColor, 'border-color');
+            const textPicker = createColorPicker('Barva textu', textColor, 'text-color');
+            
+            // Tlačítka pro uložení a zrušení
+            const buttonContainer = document.createElement('div');
+            buttonContainer.style.display = 'flex';
+            buttonContainer.style.justifyContent = 'space-between';
+            buttonContainer.style.marginTop = '15px';
+            
+            const saveButton = document.createElement('button');
+            saveButton.textContent = 'Uložit';
+            Object.assign(saveButton.style, {
+                padding: '8px 16px',
+                backgroundColor: '#2ecc71',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+            });
+            
+            const cancelButton = document.createElement('button');
+            cancelButton.textContent = 'Zrušit';
+            Object.assign(cancelButton.style, {
+                padding: '8px 16px',
+                backgroundColor: '#e74c3c',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+            });
+            
+            const resetButton = document.createElement('button');
+            resetButton.textContent = 'Výchozí';
+            Object.assign(resetButton.style, {
+                padding: '8px 16px',
+                backgroundColor: '#3498db',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+            });
+            
+            buttonContainer.appendChild(resetButton);
+            buttonContainer.appendChild(cancelButton);
+            buttonContainer.appendChild(saveButton);
+            
+            // Akce tlačítek
+            saveButton.addEventListener('click', () => {
+                // Získání vybraných hodnot
+                const color = bgColorInput.value;
+                const opacity = opacityInput.value / 100;
+                
+                // Konvertujeme hex na rgba
+                const r = parseInt(color.substr(1, 2), 16);
+                const g = parseInt(color.substr(3, 2), 16);
+                const b = parseInt(color.substr(5, 2), 16);
+                
+                const bgColorValue = `rgba(${r}, ${g}, ${b}, ${opacity})`;
+                
+                // Uložení hodnot
+                this.setHighlightColors(
+                    bgColorValue,
+                    borderPicker.input.value,
+                    textPicker.input.value
+                );
+                
+                // Zavření overlay
+                document.body.removeChild(colorOverlay);
+            });
+            
+            cancelButton.addEventListener('click', () => {
+                document.body.removeChild(colorOverlay);
+            });
+            
+            resetButton.addEventListener('click', () => {
+                // Resetování na výchozí hodnoty
+                bgColorInput.value = '#2ecc71';
+                opacityInput.value = 15;
+                borderPicker.input.value = '#2ecc71';
+                textPicker.input.value = '#2ecc71';
+                
+                // Aktualizujeme náhled
+                updateBgPreview();
+                borderPicker.input.dispatchEvent(new Event('input'));
+                textPicker.input.dispatchEvent(new Event('input'));
+            });
+            
+            // Sestavení kontejneru
+            colorContainer.appendChild(title);
+            colorContainer.appendChild(bgOpacityContainer);
+            colorContainer.appendChild(borderPicker.container);
+            colorContainer.appendChild(textPicker.container);
+            colorContainer.appendChild(buttonContainer);
+            
+            colorOverlay.appendChild(colorContainer);
+            
+            // Přidání do stránky
+            document.body.appendChild(colorOverlay);
+        },
+        'Nastavení barev zvýraznění komentářů'
+    );
     
    // Upravené tlačítko pro zapnutí/vypnutí zvýrazňování komentářů
    const highlightToggle = createButton(
@@ -1161,6 +1472,7 @@ panel.appendChild(sloganLink);
 panel.appendChild(mainToggle);
 panel.appendChild(expandToggle);
 panel.appendChild(highlightToggle); 
+panel.appendChild(colorButton);
 panel.appendChild(notifButton);
 panel.appendChild(announcementsToggle); 
 panel.appendChild(imageEnhanceToggle);  // NOVÉ tlačítko
