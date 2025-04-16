@@ -46,6 +46,18 @@
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
     },
+
+    // Nová throttle funkce
+    throttle: (func, limit) => {
+        let inThrottle;
+        return function(...args) {
+            if (!inThrottle) {
+                func.apply(this, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
+        };
+    },
         // Vylepšená funkce pro zpracování časových údajů
         parseTimeToMs: (timeText) => {
             if (!timeText) return Infinity;
@@ -624,18 +636,14 @@ if (allTimeSpans.length > 0) {
     
     // Seřadíme od nejnovějšího (nejmenší čas) s preferencí zanořených a později přidaných komentářů
     allTimeSpans.sort((a, b) => {
-        // Nejprve porovnáme podle času
-        const timeCompare = a.timeMs - b.timeMs;
+        // Časový rozdíl je převeden na znaménko (-1, 0, 1) - výrazně zrychlí sortování
+        const timeCompare = Math.sign(a.timeMs - b.timeMs);
         
         if (timeCompare === 0) {
-            // Při stejném čase preferujeme zanořené komentáře
-            if (a.isNested && b.isNested) {
-                // Oba jsou zanořené - vybereme ten, který je později v DOM (větší index)
-                return b.domIndex - a.domIndex;
-            } else {
-                // Pokud jen jeden je zanořený, preferujeme ho
-                return b.isNested - a.isNested;
+            if (a.isNested !== b.isNested) {
+                return b.isNested - a.isNested; // Boolean na číslo: true = 1, false = 0
             }
+            return b.domIndex - a.domIndex;
         }
         
         return timeCompare;
@@ -817,8 +825,42 @@ if (contentToHighlight) {
             return path.join(' > ');
         },
 
-        // Vložte tuto funkci jako metodu Highlighter objektu (před nebo po metodě getDomPath)
-
+        // Nová metoda pro vylepšení prohlížeče obrázků
+enhanceImageViewer: function(overlay, largeImg) {
+    // Vytvoříme tlačítko pro stažení
+    const downloadButton = document.createElement('a');
+    downloadButton.textContent = '📥 Stáhnout obrázek';
+    downloadButton.href = largeImg.src;
+    downloadButton.download = largeImg.src.split('/').pop();
+    downloadButton.target = '_blank';
+    
+    Object.assign(downloadButton.style, {
+        color: 'white',
+        padding: '8px 16px',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: '4px',
+        textDecoration: 'none',
+        marginTop: '10px',
+        textAlign: 'center',
+        display: 'inline-block',
+        cursor: 'pointer',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
+        fontWeight: '500',
+        transition: 'background-color 0.2s ease'
+    });
+    
+    // Efekty hover
+    downloadButton.addEventListener('mouseenter', () => {
+        downloadButton.style.backgroundColor = 'rgba(40, 120, 200, 0.7)';
+    });
+    
+    downloadButton.addEventListener('mouseleave', () => {
+        downloadButton.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    });
+    
+    // Přidáme tlačítko do overlay
+    overlay.querySelector('div').appendChild(downloadButton);
+},
 // Vylepšená funkce pro zobrazení obrázků v plné velikosti
 enhanceImages: function() {
     // Pokud je skript vypnutý nebo je konkrétně tato funkce vypnutá, neprovádíme nic
@@ -963,10 +1005,23 @@ enhanceImages: function() {
             overlay.appendChild(contentContainer);
             
             document.body.appendChild(overlay);
+
+            
+            this.enhanceImageViewer(overlay, largeImg);
             
             // Zjistíme, zda se obrázek načetl v plné velikosti
-            largeImg.onload = function() {
+            largeImg.onload = () => {
                 loadingText.textContent = 'Obrázek načten v plné velikosti';
+                
+                // Přidáme informaci o rozměrech obrázku
+                const dimensions = document.createElement('div');
+                dimensions.textContent = `${largeImg.naturalWidth} × ${largeImg.naturalHeight} px`;
+                dimensions.style.color = 'white';
+                dimensions.style.fontSize = '12px';
+                dimensions.style.marginTop = '6px';
+                dimensions.style.opacity = '0.8';
+                contentContainer.insertBefore(dimensions, infoText);
+                
                 setTimeout(() => {
                     contentContainer.removeChild(loadingText);
                 }, 1000);
@@ -1966,13 +2021,12 @@ window.addEventListener('scroll', () => {
             setInterval(() => this.enhanceImages(), 1000);
             
             // MutationObserver pro sledování změn v DOM, zejména otevření dialogů s obrázky
-            const observer = new MutationObserver((mutations) => {
-                for (const mutation of mutations) {
-                    if (mutation.addedNodes.length > 0) {
-                        setTimeout(() => this.enhanceImages(), 100); // Reagujeme na změny DOM s malou prodlevou
-                    }
-                }
-            });
+            const throttledEnhanceImages = Utils.throttle(this.enhanceImages.bind(this), 200);
+const observer = new MutationObserver((mutations) => {
+    if (mutations.some(m => m.addedNodes.length > 0)) {
+        throttledEnhanceImages();
+    }
+});
             
             // Sledujeme změny v celém dokumentu - zejména přidávání dialogů a nových komentářů
             observer.observe(document.body, { 
