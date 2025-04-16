@@ -3,7 +3,7 @@
 // ==UserScript==
 // @name         GunsBook Enhancer
 // @namespace    https://github.com/CrocodilusCZ/
-// @version      1.0.3
+// @version      1.0.5
 // @description  Rozbalí příspěvky/komentáře, zvýrazní nejnovější komentář a vylepšuje zobrazení obrázků
 // @author       Redsnake
 // @match        https://gunsbook.com/*
