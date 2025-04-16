@@ -1497,6 +1497,7 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
         'Nastavení barev zvýraznění komentářů'
     );
     
+
    // Upravené tlačítko pro zapnutí/vypnutí zvýrazňování komentářů
    const highlightToggle = createButton(
     '🔍 Zvýrazňování: ON', 
@@ -1528,6 +1529,71 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
     },
     'Zapnout/vypnout automatické zvýrazňování nejnovějších komentářů'
 );
+
+// Vytvoříme kontejner pro tlačítko zvýrazňování a ozubené kolečko
+const highlightButtonContainer = document.createElement('div');
+Object.assign(highlightButtonContainer.style, {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px', 
+    marginBottom: '5px'
+});
+
+// Přidání flexu pro tlačítko zvýrazňování
+Object.assign(highlightToggle.style, {
+    flex: '1',
+    marginRight: '0'
+});
+
+// Vytvoříme tlačítko palety barev pro nastavení barev
+const highlightSettingsButton = document.createElement('div');
+Object.assign(highlightSettingsButton.style, {
+    backgroundColor: 'rgba(60, 60, 60, 0.9)',
+    color: 'white',
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontSize: '14px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+    transition: 'background-color 0.2s, transform 0.2s',
+    marginLeft: '2px'
+});
+
+highlightSettingsButton.innerHTML = '🎨'; // Emoji palety barev
+highlightSettingsButton.title = 'Nastavení barev zvýraznění';
+
+// Efekty při najetí myší na tlačítko nastavení barev
+highlightSettingsButton.addEventListener('mouseenter', () => {
+    highlightSettingsButton.style.backgroundColor = 'rgba(80, 80, 80, 0.9)';
+    highlightSettingsButton.style.transform = 'scale(1.1)';
+});
+
+highlightSettingsButton.addEventListener('mouseleave', () => {
+    highlightSettingsButton.style.backgroundColor = 'rgba(60, 60, 60, 0.9)';
+    highlightSettingsButton.style.transform = 'scale(1)';
+});
+
+// Kliknutí na tlačítko nastavení otevře dialog
+highlightSettingsButton.addEventListener('click', () => {
+    if (this.state.isDisabled) return;
+    colorButton.dispatchEvent(new Event('click'));
+    
+    // Reset časovače pro skrytí panelu
+    if (hideTimeout) {
+        clearTimeout(hideTimeout);
+    }
+    hideTimeout = setTimeout(() => {
+        hidePanel();
+    }, 30000);
+});
+
+// Přidáme obě tlačítka do kontejneru
+highlightButtonContainer.appendChild(highlightToggle);
+highlightButtonContainer.appendChild(highlightSettingsButton);
     
     // Vytvoříme kontejner pro tlačítko a ozubené kolečko
 const notifButtonContainer = document.createElement('div');
@@ -1733,8 +1799,7 @@ panel.appendChild(sloganLink);
   // Přidání všech tlačítek do panelu
 panel.appendChild(mainToggle);
 panel.appendChild(expandToggle);
-panel.appendChild(highlightToggle); 
-panel.appendChild(colorButton);
+panel.appendChild(highlightButtonContainer); 
 panel.appendChild(notifButtonContainer);
 panel.appendChild(announcementsToggle); 
 panel.appendChild(imageEnhanceToggle);  // NOVÉ tlačítko
@@ -1808,11 +1873,11 @@ panel.appendChild(debugToggle);
         
             // PŘIDAT ZDE - Druhá část kódu
             // A také okamžitá kontrola oznámení při načtení stránky
-            setTimeout(() => {
-                if (!this.state.announcementsHidingDisabled) {
-                    this.hideAdminAnnouncements();
-                }
-            }, 1000);
+setTimeout(() => {
+    if (!this.state.announcementsHidingDisabled) {
+        this.hideAdminAnnouncements();
+    }
+}, 1000);
         
             Utils.logImportant('Inicializace dokončena.');
         }
