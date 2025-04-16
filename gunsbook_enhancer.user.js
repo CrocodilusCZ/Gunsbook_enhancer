@@ -1,4 +1,5 @@
 
+
 // ==UserScript==
 // @name         GunsBook Enhancer
 // @namespace    https://github.com/CrocodilusCZ/
@@ -7,7 +8,7 @@
 // @author       Redsnake
 // @match        https://gunsbook.com/*
 // @grant        none
-// @run-at       document-idle
+// @run-at       document-end
 // @updateURL    https://raw.githubusercontent.com/CrocodilusCZ/Gunsbook_enhancer/master/gunsbook_enhancer.user.js
 // @downloadURL  https://raw.githubusercontent.com/CrocodilusCZ/Gunsbook_enhancer/master/gunsbook_enhancer.user.js
 // ==/UserScript==
