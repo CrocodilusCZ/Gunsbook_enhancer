@@ -238,13 +238,26 @@ highlightNewestInPost: function(post) {
         el.style.fontWeight = '';
     });
     
-    // NOVÁ FUNKCE: Kontrola počtu komentářů v příspěvku
-    const commentElements = post.querySelectorAll('[data-testid="comment"]');
-    // Pokud je pouze jeden komentář, neprovádíme zvýrazňování
-    if (commentElements.length <= 1) {
-        Utils.log(`Příspěvek má pouze ${commentElements.length} komentář(e), přeskakuji zvýrazňování`);
-        return;
-    }
+    // Detekce počtu komentářů včetně zanořených odpovědí
+const commentElements = post.querySelectorAll('[data-testid="comment"]');
+
+// Pro hledání odpovědí musíme být specifičtější, abychom vyloučili hlavní komentáře
+// Nejprve najdeme všechny zanořené odpovědi, které jsou uvnitř hlavních komentářů
+const nestedReplies = [];
+commentElements.forEach(comment => {
+    // Hledáme odpovědi uvnitř hlavního komentáře (kromě samotného komentáře)
+    const replies = comment.querySelectorAll('.ltr-c7xrli .ltr-rwjg63, .ltr-gq6jkq');
+    nestedReplies.push(...Array.from(replies));
+});
+
+// Celkový počet je hlavní komentáře + zanořené odpovědi
+const totalComments = commentElements.length + nestedReplies.length;
+
+// Zvýrazňujeme pouze pokud máme více než 1 celkem
+if (totalComments <= 1) {
+    Utils.log(`Příspěvek má pouze ${totalComments} komentář(e), přeskakuji zvýrazňování`);
+    return;
+}
     
     // Sbíráme všechny časové údaje nehledě na strukturu
     let allTimeSpans = [];
