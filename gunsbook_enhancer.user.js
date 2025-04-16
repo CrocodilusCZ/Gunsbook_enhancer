@@ -1005,40 +1005,55 @@ highlightVisiblePosts: function() {
 addToggleControl: function() {
     // --- HLAVNÍ PANEL ---
     const panel = document.createElement('div');
-    Object.assign(panel.style, {
-        position: 'fixed',
-        bottom: '120px',
-        right: '10px',
-        display: 'none', // Začínáme se skrytým panelem
-        flexDirection: 'column',
-        gap: '5px',
-        zIndex: '9999',
-        transition: 'opacity 0.3s ease-in-out'
-    });
+Object.assign(panel.style, {
+    position: 'fixed',
+    bottom: '120px',
+    right: '10px',
+    display: 'none', // Začínáme se skrytým panelem
+    flexDirection: 'column',
+    gap: '8px',
+    zIndex: '9999',
+    transition: 'opacity 0.3s ease-in-out, transform 0.3s ease-in-out',
+    padding: '10px',
+    backgroundColor: 'rgba(250, 250, 250, 0.95)',
+    borderRadius: '10px',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+    border: '1px solid rgba(200, 200, 200, 0.5)',
+    backdropFilter: 'blur(5px)',
+    maxWidth: '280px',
+    transform: 'translateY(10px) scale(0.98)', // Přidaná transformace pro počáteční stav
+    opacity: '0' // Přidejte také počáteční průhlednost
+});
     
     // --- IKONA OKA ---
     const eyeButton = document.createElement('div');
-    Object.assign(eyeButton.style, {
-        position: 'fixed',
-        bottom: '80px',
-        right: '35px', // Posunuto o 30px doleva
-        width: '32px',
-        height: '32px',
-        borderRadius: '50%',
-        backgroundColor: 'rgba(50, 60, 50, 0.85)', // Taktická tmavě zelená
-        color: 'white',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        zIndex: '10000',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
-        transition: 'transform 0.2s, background-color 0.2s',
-        fontSize: '18px'
-    });
-    
-    eyeButton.innerHTML = '👁️'; // Emoji oka
-    eyeButton.title = 'Zobrazit/skrýt ovládací panel';
+Object.assign(eyeButton.style, {
+    position: 'fixed',
+    bottom: '80px',
+    right: '35px',
+    width: '34px',
+    height: '34px',
+    borderRadius: '50%',
+    backgroundColor: 'rgba(240, 240, 240, 0.85)', // Světlejší, decentnější pozadí
+    color: '#333', // Tmavé ikony na světlém pozadí
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    zIndex: '10000',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+    transition: 'all 0.2s ease',
+    border: '1px solid rgba(200, 200, 200, 0.8)'
+});
+
+// SVG ikona oka místo emoji - profesionálnější vzhled
+eyeButton.innerHTML = `
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+    <circle cx="12" cy="12" r="3"></circle>
+</svg>`;
+
+eyeButton.title = 'GB Enhancer - Zobrazit/skrýt ovládací panel';
     
     // Proměnné pro správu stavu a časovače
     let isPanelVisible = false;
@@ -1048,20 +1063,28 @@ addToggleControl: function() {
     const showPanel = () => {
         isPanelVisible = true;
         panel.style.display = 'flex';
-        panel.style.opacity = '1';
-        eyeButton.style.backgroundColor = 'rgba(75, 83, 68, 0.95)'; // Vojenská zelená při aktivaci
-        eyeButton.style.transform = 'scale(1.1)';
-    
         
-        // Zrušíme existující timeout, pokud existuje
+        // Přidáme malé zpoždění pro animaci
+        setTimeout(() => {
+            panel.style.opacity = '1';
+            panel.style.transform = 'translateY(0) scale(1)';
+        }, 10);
+        
+        // Aktualizujeme vzhled tlačítka
+        eyeButton.style.backgroundColor = 'rgba(235, 245, 250, 0.95)';
+        eyeButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+        eyeButton.style.borderColor = 'rgba(100, 150, 200, 0.8)';
+        eyeButton.querySelector('svg').style.stroke = '#2980b9';
+        
+        // Zrušíme existující timeout
         if (hideTimeout) {
             clearTimeout(hideTimeout);
         }
         
-        // Nastavíme nový timeout pro skrytí po 30 sekundách nečinnosti
+        // Nastavíme nový timeout
         hideTimeout = setTimeout(() => {
             hidePanel();
-        }, 30000); // 30 sekund
+        }, 30000);
         
         Utils.log('Panel zobrazen');
     };
@@ -1070,18 +1093,39 @@ addToggleControl: function() {
     const hidePanel = () => {
         isPanelVisible = false;
         panel.style.opacity = '0';
+        panel.style.transform = 'translateY(10px) scale(0.98)';
         
-        // Přidáme krátké zpoždění, aby byla vidět animace
+        // Přidáme krátké zpoždění pro dokončení animace
         setTimeout(() => {
             panel.style.display = 'none';
-        }, 300); // 300ms pro dokončení animace
+        }, 300);
         
-        eyeButton.style.backgroundColor = 'rgba(50, 60, 50, 0.85)'; // Návrat k původní barvě
-        eyeButton.style.transform = 'scale(1)';
+        // Vrátíme původní vzhled tlačítka
+        eyeButton.style.backgroundColor = 'rgba(240, 240, 240, 0.85)';
+        eyeButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+        eyeButton.style.borderColor = 'rgba(200, 200, 200, 0.8)';
+        eyeButton.querySelector('svg').style.stroke = '#333';
         
         Utils.log('Panel skryt');
     };
     
+    // Přidáme efekt při najetí myší pro lepší UX
+eyeButton.addEventListener('mouseenter', () => {
+    if (!isPanelVisible) {
+        eyeButton.style.backgroundColor = 'rgba(245, 245, 245, 0.95)';
+        eyeButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.25)';
+        eyeButton.style.borderColor = 'rgba(180, 180, 180, 0.9)';
+    }
+});
+
+eyeButton.addEventListener('mouseleave', () => {
+    if (!isPanelVisible) {
+        eyeButton.style.backgroundColor = 'rgba(240, 240, 240, 0.85)';
+        eyeButton.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+        eyeButton.style.borderColor = 'rgba(200, 200, 200, 0.8)';
+    }
+});
+
     // Přidáme event listener pro kliknutí na ikonu oka
     eyeButton.addEventListener('click', () => {
         if (isPanelVisible) {
@@ -1114,19 +1158,25 @@ addToggleControl: function() {
     const createButton = (text, color, onClick, tooltip = '') => {
         const button = document.createElement('div');
         button.textContent = text;
+        
+        // Modernější design tlačítek
         Object.assign(button.style, {
             backgroundColor: color,
             color: 'white',
-            padding: '5px 10px',
-            borderRadius: '5px',
+            padding: '8px 12px',
+            borderRadius: '6px',
             cursor: 'pointer',
-            fontSize: '12px',
+            fontSize: '13px',
+            fontWeight: '500',
             textAlign: 'center',
             whiteSpace: 'nowrap',
             userSelect: 'none',
-            transition: 'background-color 0.2s, box-shadow 0.2s',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
         });
+        
         if (tooltip) button.title = tooltip;
         
         // Přidáme reset časovače při interakci s tlačítkem
@@ -1141,12 +1191,25 @@ addToggleControl: function() {
             onClick();
         });
         
-        // Efekty při najetí myší
+        // Vylepšené efekty při najetí myší
         button.addEventListener('mouseenter', () => {
-            button.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+            button.style.transform = 'translateY(-1px)';
+            button.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+            // Zesvětlit barvu pro lepší efekt
+            const lighterColor = color.replace('rgba(', '').replace(')', '').split(',');
+            if (lighterColor.length === 4) {
+                const r = Math.min(parseInt(lighterColor[0]) + 15, 255);
+                const g = Math.min(parseInt(lighterColor[1]) + 15, 255);
+                const b = Math.min(parseInt(lighterColor[2]) + 15, 255);
+                const a = lighterColor[3];
+                button.style.backgroundColor = `rgba(${r}, ${g}, ${b}, ${a})`;
+            }
         });
+        
         button.addEventListener('mouseleave', () => {
-            button.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            button.style.transform = 'translateY(0)';
+            button.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            button.style.backgroundColor = color;
         });
         
         return button;
@@ -1758,39 +1821,29 @@ const debugToggle = createButton(
 const sloganLink = document.createElement('a');
 sloganLink.href = 'https://www.reloading-tracker.cz';
 sloganLink.target = '_blank';
-sloganLink.textContent = 'Sparked by Reloading tracker and gunpowder';
+sloganLink.textContent = 'Powered by Reloading Tracker';
 Object.assign(sloganLink.style, {
-    color: '#4d5d53', // Vojenská zelená pro text
+    color: '#444',
     textDecoration: 'none',
-    fontSize: '14px',
-    fontWeight: 'bold',
+    fontSize: '12px',
+    fontWeight: '600',
     textAlign: 'center',
-    padding: '8px',
-    marginBottom: '8px',
-    textShadow: '1px 1px 2px rgba(0, 0, 0, 0.2)',
-    fontFamily: '"Trebuchet MS", Arial, sans-serif',
+    padding: '4px 0',
+    marginBottom: '6px',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     display: 'block',
-    opacity: '1',
-    transition: 'all 0.3s ease',
-    backgroundColor: '#e5e5e0', // Taktická šedá
-    borderRadius: '3px', // Méně zakulacené rohy - více "taktický" vzhled
-    border: '1px solid #4d5d53', // Vojenská zelená pro rámeček
-    boxShadow: '0 2px 3px rgba(0,0,0,0.2)'
+    letterSpacing: '0.3px',
+    borderBottom: '1px solid rgba(0,0,0,0.1)',
+    paddingBottom: '8px'
 });
 
-// Efekty při najetí myší - výraznější
+// Efekty při najetí myší - subtilnější
 sloganLink.addEventListener('mouseenter', () => {
-    sloganLink.style.color = '#2e3a2e'; // Tmavší zelená při najetí
-    sloganLink.style.transform = 'scale(1.02)'; // Menší efekt zvětšení
-    sloganLink.style.boxShadow = '0 3px 5px rgba(0,0,0,0.3)';
-    sloganLink.style.borderColor = '#2e3a2e';
+    sloganLink.style.color = '#2980b9';
 });
 
 sloganLink.addEventListener('mouseleave', () => {
-    sloganLink.style.color = '#2ecc71';
-    sloganLink.style.transform = 'scale(1)';
-    sloganLink.style.boxShadow = '0 2px 4px rgba(0,0,0,0.15)';
-    sloganLink.style.borderColor = '#2ecc71';
+    sloganLink.style.color = '#444';
 });
 
 // Přidáme odkaz před ostatní tlačítka
