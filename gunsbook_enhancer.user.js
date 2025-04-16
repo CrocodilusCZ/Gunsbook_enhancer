@@ -42,33 +42,34 @@ const CONFIG = {
         };
     },
         // Vylepšená funkce pro zpracování časových údajů
-parseTimeToMs: (timeText) => {
-    if (!timeText) return Infinity;
-    timeText = timeText.toLowerCase();
-    
-    // Speciální případ pro "právě teď"
-    if (timeText.includes('just now')) return 0;
-    
-    // Speciální případy pro "an hour", "a minute" atd. bez čísla
-    if (timeText === 'an hour' || timeText === 'a hour') return 1 * 60 * 60 * 1000;
-    if (timeText === 'a minute' || timeText === 'a min') return 1 * 60 * 1000;
-    if (timeText === 'a second' || timeText === 'a sec') return 1 * 1000;
-    
-    // Získáme celé číslo pomocí regulárního výrazu
-    const match = timeText.match(/(\d+)/);
-    const value = match ? parseInt(match[0]) : 1;
-    
-    // Výpočet milisekund podle jednotky času
-    if (timeText.includes('second')) return value * 1000;
-    if (timeText.includes('minute') || timeText.includes('min')) return value * 60 * 1000;
-    if (timeText.includes('hour')) return value * 60 * 60 * 1000;
-    if (timeText.includes('day')) return value * 24 * 60 * 60 * 1000;
-    if (timeText.includes('yesterday')) return 1 * 24 * 60 * 60 * 1000;
-    
-    // Přidáme logování pro diagnostiku
-    Utils.log(`Nepodařilo se rozpoznat formát času: "${timeText}", používám Infinity`);
-    return Infinity; // Pro týdny, měsíce atd.
-},
+        parseTimeToMs: (timeText) => {
+            if (!timeText) return Infinity;
+            timeText = timeText.toLowerCase();
+            
+            // Speciální případ pro "právě teď" a "a few seconds"
+            if (timeText.includes('just now')) return 0;
+            if (timeText.includes('a few seconds')) return 0; // Přidaná podpora pro "a few seconds"
+            
+            // Speciální případy pro "an hour", "a minute" atd. bez čísla
+            if (timeText === 'an hour' || timeText === 'a hour') return 1 * 60 * 60 * 1000;
+            if (timeText === 'a minute' || timeText === 'a min') return 1 * 60 * 1000;
+            if (timeText === 'a second' || timeText === 'a sec') return 1 * 1000;
+            
+            // Získáme celé číslo pomocí regulárního výrazu
+            const match = timeText.match(/(\d+)/);
+            const value = match ? parseInt(match[0]) : 1;
+            
+            // Výpočet milisekund podle jednotky času
+            if (timeText.includes('second')) return value * 1000;
+            if (timeText.includes('minute') || timeText.includes('min')) return value * 60 * 1000;
+            if (timeText.includes('hour')) return value * 60 * 60 * 1000;
+            if (timeText.includes('day')) return value * 24 * 60 * 60 * 1000;
+            if (timeText.includes('yesterday')) return 1 * 24 * 60 * 60 * 1000;
+            
+            // Přidáme logování pro diagnostiku
+            Utils.log(`Nepodařilo se rozpoznat formát času: "${timeText}", používám Infinity`);
+            return Infinity; // Pro týdny, měsíce atd.
+        },
         isInViewport: (el) => {
             const rect = el.getBoundingClientRect();
             return rect.top >= 0 && rect.left >= 0 && rect.bottom <= window.innerHeight && rect.right <= window.innerWidth;
@@ -84,7 +85,9 @@ parseTimeToMs: (timeText) => {
     expandingDisabled: false,  // Stav pro zapnutí/vypnutí rozbalování
     highlightingDisabled: false,  // stav pro zapnutí/vypnutí zvýrazňování (přidána čárka)
     notificationsHidingDisabled: false,  // stav pro zapnutí/vypnutí skrývání notifikací
-        imageEnhancementDisabled: false  //stav pro zapnutí/vypnutí vylepšení obrázků
+    imageEnhancementDisabled: false,  //stav pro zapnutí/vypnutí vylepšení obrázků
+    announcementsHidingDisabled: false  // NOVÉ: stav pro zapnutí/vypnutí skrývání oznámení
+
 
 },
         
@@ -123,6 +126,36 @@ hideUnwantedNotifications: function() {
     // Logujeme pouze pokud jsme něco skryli
     if (skrytePocet > 0) {
         Utils.logImportant(`Skryto ${skrytePocet} notifikací "posted in..." nebo "new member"`);
+    }
+},
+
+// Nová funkce pro skrytí oznámení administrátorů
+hideAdminAnnouncements: function() {
+    // Pokud je skript vypnutý nebo je konkrétně tato funkce vypnutá, neprovádíme nic
+    if (this.state.isDisabled || this.state.announcementsHidingDisabled) return;
+    
+    // Vyhledáme všechny kontejnery oznámení
+    const announcements = document.querySelectorAll('[data-testid="blockAnnouncementListing"]');
+    
+    let skrytePocet = 0;
+    
+    // Procházíme každé oznámení
+    announcements.forEach(announcement => {
+        // Kontrola, zda oznámení již není skryté
+        if (announcement.style.display === 'none') return;
+        
+        // Kontrola, zda existuje tlačítko "I have read this"
+        const readButton = announcement.querySelector('.ltr-1m0elym');
+        if (readButton) {
+            // Skryjeme celý kontejner oznámení
+            announcement.style.display = 'none';
+            skrytePocet++;
+        }
+    });
+    
+    // Logujeme pouze pokud jsme něco skryli
+    if (skrytePocet > 0) {
+        Utils.logImportant(`Skryto ${skrytePocet} oznámení administrátorů`);
     }
 },
 
@@ -237,7 +270,7 @@ highlightNewestInPost: function(post) {
         el.style.color = '';
         el.style.fontWeight = '';
     });
-    
+
     // Detekce počtu komentářů včetně zanořených odpovědí
 const commentElements = post.querySelectorAll('[data-testid="comment"]');
 
@@ -288,7 +321,7 @@ if (totalComments <= 1) {
         }
         
         // VYLEPŠENÍ 4: Vylepšený regulární výraz pro detekci časových údajů - včetně formátu "an hour"
-        if (text.match(/(^|\s)(\d+|an?|just)\s*(second|sec|minute|min|hour|day|week|month|year|now)/i)) {
+        if (text.match(/(^|\s)(\d+|an?|just|few)\s*(second|sec|minute|min|hour|day|week|month|year|now)/i)) {
             const timeMs = Utils.parseTimeToMs(text);
             
             // Uložíme si všechny potřebné informace
@@ -913,6 +946,8 @@ highlightToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
 highlightToggle.style.pointerEvents = this.state.isDisabled ? 'none' : 'auto'; 
 notifButton.style.opacity = this.state.isDisabled ? '0.5' : '1';
 notifButton.style.pointerEvents = this.state.isDisabled ? 'none' : 'auto';
+announcementsToggle.style.opacity = this.state.isDisabled ? '0.5' : '1'; // NOVÉ
+announcementsToggle.style.pointerEvents = this.state.isDisabled ? 'none' : 'auto'; // NOVÉ
 imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';  
     imageEnhanceToggle.style.pointerEvents = this.state.isDisabled ? 'none' : 'auto';  
             
@@ -1031,7 +1066,35 @@ const imageEnhanceToggle = createButton(
     'Zapnout/vypnout automatické vylepšení zobrazení obrázků'
 );
 
-
+// Nové tlačítko pro zapnutí/vypnutí skrývání oznámení administrátorů
+const announcementsToggle = createButton(
+    '📢 Skrývání oznámení: ON', 
+    'rgba(75, 55, 40, 0.95)', // Trochu odlišná hnědá od notifikací
+    () => {
+        if (this.state.isDisabled) return;
+        // Přepneme stav
+        this.state.announcementsHidingDisabled = !this.state.announcementsHidingDisabled;
+        
+        // Aktualizujeme text a barvu tlačítka
+        announcementsToggle.textContent = `📢 Skrývání oznámení: ${this.state.announcementsHidingDisabled ? 'OFF' : 'ON'}`;
+        announcementsToggle.style.backgroundColor = this.state.announcementsHidingDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(75, 55, 40, 0.95)';
+        
+        Utils.logImportant(`Automatické skrývání oznámení ${this.state.announcementsHidingDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
+        
+        // Pokud jsme právě zapnuli skrývání, spustíme ho hned
+        if (!this.state.announcementsHidingDisabled) {
+            this.hideAdminAnnouncements();
+        } else {
+            // Pokud jsme vypnuli, obnovíme zobrazení oznámení
+            document.querySelectorAll('[data-testid="blockAnnouncementListing"]').forEach(el => {
+                if (el.style.display === 'none') {
+                    el.style.display = '';
+                }
+            });
+        }
+    },
+    'Zapnout/vypnout automatické skrývání oznámení administrátorů'
+);
 // Tlačítko pro zapnutí/vypnutí debug režimu
 const debugToggle = createButton(
     '🐛 Debug: OFF',
@@ -1099,6 +1162,7 @@ panel.appendChild(mainToggle);
 panel.appendChild(expandToggle);
 panel.appendChild(highlightToggle); 
 panel.appendChild(notifButton);
+panel.appendChild(announcementsToggle); 
 panel.appendChild(imageEnhanceToggle);  // NOVÉ tlačítko
 panel.appendChild(debugToggle);
     
@@ -1109,59 +1173,75 @@ panel.appendChild(debugToggle);
     Utils.logImportant('Ovládací panel s ikonou oka přidán');
 },
         // Inicializace
-init: function() {
-    Utils.logImportant('GunsBook Simple Highlighter se inicializuje...');
-    this.addToggleControl();
-
-    // Debounced verze hlavní funkce
-    const debouncedProcess = Utils.debounce(this.processPosts.bind(this), CONFIG.SCROLL_DEBOUNCE);
-
-    // Spustit při scrollování
-    window.addEventListener('scroll', debouncedProcess, { passive: true });
-
-    // Spustit periodicky
-    setInterval(() => this.processPosts(), CONFIG.CHECK_INTERVAL);
-    
-    // Pravidelná kontrola a skrytí nežádoucích notifikací
-    setInterval(() => {
-    if (!this.state.isDisabled && !this.state.notificationsHidingDisabled) {
-        this.hideUnwantedNotifications();
-    }
-}, 2000);
-    
-    // Pravidelná kontrola a vylepšení obrázků na plnou velikost
-    setInterval(() => this.enhanceImages(), 1000);
-    
-    // MutationObserver pro sledování změn v DOM, zejména otevření dialogů s obrázky
-    const observer = new MutationObserver((mutations) => {
-        for (const mutation of mutations) {
-            if (mutation.addedNodes.length > 0) {
-                setTimeout(() => this.enhanceImages(), 100); // Reagujeme na změny DOM s malou prodlevou
-            }
+        init: function() {
+            Utils.logImportant('GunsBook Simple Highlighter se inicializuje...');
+            this.addToggleControl();
+        
+            // Debounced verze hlavní funkce
+            const debouncedProcess = Utils.debounce(this.processPosts.bind(this), CONFIG.SCROLL_DEBOUNCE);
+        
+            // Spustit při scrollování
+            window.addEventListener('scroll', debouncedProcess, { passive: true });
+        
+            // Spustit periodicky
+            setInterval(() => this.processPosts(), CONFIG.CHECK_INTERVAL);
+            
+            // Pravidelná kontrola a skrytí nežádoucích notifikací
+            setInterval(() => {
+              if (!this.state.isDisabled && !this.state.notificationsHidingDisabled) {
+                  this.hideUnwantedNotifications();
+              }
+            }, 2000);
+            
+            // PŘIDAT ZDE - První část kódu
+            // Pravidelná kontrola a skrytí oznámení administrátorů
+            setInterval(() => {
+                if (!this.state.isDisabled && !this.state.announcementsHidingDisabled) {
+                    this.hideAdminAnnouncements();
+                }
+            }, 2000);
+            
+            // Pravidelná kontrola a vylepšení obrázků na plnou velikost
+            setInterval(() => this.enhanceImages(), 1000);
+            
+            // MutationObserver pro sledování změn v DOM, zejména otevření dialogů s obrázky
+            const observer = new MutationObserver((mutations) => {
+                for (const mutation of mutations) {
+                    if (mutation.addedNodes.length > 0) {
+                        setTimeout(() => this.enhanceImages(), 100); // Reagujeme na změny DOM s malou prodlevou
+                    }
+                }
+            });
+            
+            // Sledujeme změny v celém dokumentu - zejména přidávání dialogů a nových komentářů
+            observer.observe(document.body, { 
+                childList: true,
+                subtree: true 
+            });
+        
+            // První spuštění po načtení
+            setTimeout(() => this.processPosts(), 1500); // Dáme stránce chvilku na donačtení
+            
+            // Spustíme kontrolu notifikací ihned po načtení - pouze pokud není vypnuta
+            setTimeout(() => {
+                if (!this.state.notificationsHidingDisabled) {
+                    this.hideUnwantedNotifications();
+                }
+            }, 1000);
+            
+            // Spustíme vylepšení obrázků ihned po načtení
+            setTimeout(() => this.enhanceImages(), 1200);
+        
+            // PŘIDAT ZDE - Druhá část kódu
+            // A také okamžitá kontrola oznámení při načtení stránky
+            setTimeout(() => {
+                if (!this.state.announcementsHidingDisabled) {
+                    this.hideAdminAnnouncements();
+                }
+            }, 1000);
+        
+            Utils.logImportant('Inicializace dokončena.');
         }
-    });
-    
-    // Sledujeme změny v celém dokumentu - zejména přidávání dialogů a nových komentářů
-    observer.observe(document.body, { 
-        childList: true,
-        subtree: true 
-    });
-
-    // První spuštění po načtení
-    setTimeout(() => this.processPosts(), 1500); // Dáme stránce chvilku na donačtení
-    
-   // Spustíme kontrolu notifikací ihned po načtení - pouze pokud není vypnuta
-setTimeout(() => {
-    if (!this.state.notificationsHidingDisabled) {
-        this.hideUnwantedNotifications();
-    }
-}, 1000);
-    
-    // Spustíme vylepšení obrázků ihned po načtení
-    setTimeout(() => this.enhanceImages(), 1200);
-
-    Utils.logImportant('Inicializace dokončena.');
-}
     };
 
     // --- Spuštění Skriptu ---
