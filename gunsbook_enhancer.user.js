@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         GunsBook Enhancer
 // @namespace    https://github.com/CrocodilusCZ/
-// @version      1.0.0
+// @version      1.0.1
 // @description  Rozbalí příspěvky/komentáře, zvýrazní nejnovější komentář a vylepšuje zobrazení obrázků
 // @author       Redsnake
 // @match        https://gunsbook.com/*
@@ -197,6 +197,57 @@ hideAdminAnnouncements: function() {
     // Logujeme pouze pokud jsme něco skryli
     if (skrytePocet > 0) {
         Utils.logImportant(`Skryto ${skrytePocet} oznámení administrátorů`);
+    }
+},
+
+// Funkce pro obsluhu kliknutí na logo stránky - přidej ji mezi ostatní metody objektu Highlighter
+addLogoRefreshBehavior: function() {
+    // Nejprve zkusíme najít logo přímo
+    const trySetupLogoRefresh = () => {
+        const logoLink = document.querySelector('a[data-testid="linkLogo"]');
+        
+        if (logoLink) {
+            // Zjistíme, zda už máme event listener přidaný
+            if (logoLink.hasAttribute('gb-refresh-handler')) {
+                return true; // Už jsme nastavili handler, nepotřebujeme pokračovat
+            }
+            
+            Utils.logImportant('Nalezeno logo stránky, přidávám funkci pro obnovení stránky');
+            
+            // Označíme, že jsme přidali handler (aby se nepřidával vícekrát)
+            logoLink.setAttribute('gb-refresh-handler', 'true');
+            
+            // Přidáme event listener pro kliknutí
+            logoLink.addEventListener('click', function(event) {
+                // Zabráníme standardnímu chování (přesměrování na /)
+                event.preventDefault();
+                
+                // Obnovíme stránku
+                window.location.reload();
+                
+                Utils.log('Obnova stránky po kliknutí na logo');
+            });
+            
+            return true;
+        }
+        
+        return false;
+    };
+    
+    // Zkusíme to hned
+    if (!trySetupLogoRefresh()) {
+        // Pokud se to nepodařilo, nastavíme interval pro opakované pokusy
+        const logoCheckInterval = setInterval(() => {
+            if (trySetupLogoRefresh()) {
+                // Podařilo se najít a nastavit logo, můžeme ukončit interval
+                clearInterval(logoCheckInterval);
+            }
+        }, 1000); // Kontrola každou sekundu
+        
+        // Zrušíme interval po 10 sekundách, pokud se logo nenašlo
+        setTimeout(() => {
+            clearInterval(logoCheckInterval);
+        }, 10000);
     }
 },
 
@@ -1868,7 +1919,7 @@ panel.appendChild(debugToggle);
         init: function() {
             Utils.logImportant('GunsBook Simple Highlighter se inicializuje...');
             this.addToggleControl();
-        
+            this.addLogoRefreshBehavior();
             // Debounced verze hlavní funkce
             const debouncedProcess = Utils.debounce(this.processPosts.bind(this), CONFIG.SCROLL_DEBOUNCE);
         
