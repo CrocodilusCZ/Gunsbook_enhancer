@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name         GunsBook Enhancer
 // @namespace    https://github.com/CrocodilusCZ/
-// @version      1.0.1
+// @version      1.0.2
 // @description  Rozbalí příspěvky/komentáře, zvýrazní nejnovější komentář a vylepšuje zobrazení obrázků
 // @author       Redsnake
 // @match        https://gunsbook.com/*
@@ -253,7 +253,7 @@ addLogoRefreshBehavior: function() {
             }
         }, 10000);
     }
-}
+},
 
 // Přidejte novou metodu pro otevření nastavení filtrů:
 openNotificationFilterSettings: function() {
