@@ -18,10 +18,10 @@
     // --- Konfigurace ---
    
     const CONFIG = {
-        CHECK_INTERVAL: 3000,           // Interval pro kontrolu a zvýraznění (ms)
-        SCROLL_DEBOUNCE: 500,           // Čekání po doskrolování (ms)
-        MAX_EXPAND_ITERATIONS: 5,       // Max pokusů o rozbalení v jednom cyklu
-        EXPAND_DELAY: 750,              // Pauza mezi kliknutími na rozbalení (ms)
+        CHECK_INTERVAL: 1500,           // Interval pro kontrolu a zvýraznění (ms)
+        SCROLL_DEBOUNCE: 300,           // Čekání po doskrolování (ms)
+        MAX_EXPAND_ITERATIONS: 8,       // Max pokusů o rozbalení v jednom cyklu
+        EXPAND_DELAY: 500,              // Pauza mezi kliknutími na rozbalení (ms)
         // Načtení uložené barvy zvýraznění nebo použití výchozí
         HIGHLIGHT_COLOR: localStorage.getItem('gb_highlight_color') || 'rgba(46, 204, 113, 0.15)',
         // Načtení uložené barvy okraje nebo použití výchozí
@@ -1874,6 +1874,20 @@ panel.appendChild(debugToggle);
         
             // Spustit při scrollování
             window.addEventListener('scroll', debouncedProcess, { passive: true });
+
+            let scrollExpandTimeout;
+window.addEventListener('scroll', () => {
+    if (scrollExpandTimeout) {
+        clearTimeout(scrollExpandTimeout);
+    }
+    
+    scrollExpandTimeout = setTimeout(() => {
+        if (!this.state.isDisabled && !this.state.expandingDisabled) {
+            // Najdeme tlačítka k rozbalení ve viditelném prostoru a rovnou klikneme
+            this.expandContent();
+        }
+    }, 150);
+}, { passive: true });
         
             // Spustit periodicky
             setInterval(() => this.processPosts(), CONFIG.CHECK_INTERVAL);
