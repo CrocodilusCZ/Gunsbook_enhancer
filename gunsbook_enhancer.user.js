@@ -29,7 +29,9 @@
         // Načtení uložené barvy textu nebo použití výchozí
         HIGHLIGHT_TEXT_COLOR: localStorage.getItem('gb_highlight_text_color') || '#2ecc71',
         DEBUG: false,                   // Pro běžné debug výpisy - výchozí stav vypnuto
-        IMPORTANT_LOGS: false           // Pro důležité výpisy - výchozí stav vypnuto
+        IMPORTANT_LOGS: false,           // Pro důležité výpisy - výchozí stav vypnuto
+        NOTIFICATION_FILTERS: JSON.parse(localStorage.getItem('gb_notification_filters')) || ["posted in", "new member"],
+
     };
 
     // --- Pomocné Funkce ---
@@ -115,7 +117,7 @@
 
         
 
-// Vylepšená funkce pro skrytí nežádoucích notifikací s přesnějšími kritérii
+// Upravit metodu pro skrývání notifikací:
 hideUnwantedNotifications: function() {
     // Vyhledáme všechny notifikace
     const notifications = document.querySelectorAll('div[data-testid="itemNotification"]');
@@ -132,13 +134,19 @@ hideUnwantedNotifications: function() {
         if (notificationText) {
             const text = notificationText.textContent.toLowerCase();
             
-            // PŘESNÁ kritéria pro skrytí:
-            // 1. "posted in" - někdo přidal příspěvek do skupiny (SKRÝT)
-            // 2. "new member" - oznámení o novém členovi (SKRÝT)
-            // ALE nezahrnuje "reacted to your post in" - reakce na váš příspěvek (PONECHAT)
+            // Speciální případ - nezahrnuje "reacted to your post in" - ty vždy chceme ponechat
+            if (text.includes('reacted to your post in')) return;
             
-            if ((text.includes('posted in') && !text.includes('reacted to your post in')) || 
-                text.includes('new member')) {
+            // Použití uložených filtrů pro kontrolu
+            let shouldHide = false;
+            for (const filter of CONFIG.NOTIFICATION_FILTERS) {
+                if (text.includes(filter.toLowerCase())) {
+                    shouldHide = true;
+                    break;
+                }
+            }
+            
+            if (shouldHide) {
                 notification.style.display = 'none';
                 skrytePocet++;
             }
@@ -147,8 +155,19 @@ hideUnwantedNotifications: function() {
     
     // Logujeme pouze pokud jsme něco skryli
     if (skrytePocet > 0) {
-        Utils.logImportant(`Skryto ${skrytePocet} notifikací "posted in..." nebo "new member"`);
+        Utils.logImportant(`Skryto ${skrytePocet} notifikací podle uživatelských filtrů`);
     }
+},
+
+// Přidejte novou metodu pro nastavení filtrů:
+setNotificationFilters: function(filtersArray) {
+    // Uložíme nové hodnoty do konfigurace
+    CONFIG.NOTIFICATION_FILTERS = filtersArray;
+    
+    // Uložíme hodnoty do localStorage pro budoucí načtení
+    localStorage.setItem('gb_notification_filters', JSON.stringify(filtersArray));
+    
+    Utils.logImportant(`Nastaveny nové filtry notifikací: ${filtersArray.join(', ')}`);
 },
 
 // Nová funkce pro skrytí oznámení administrátorů
@@ -179,6 +198,188 @@ hideAdminAnnouncements: function() {
     if (skrytePocet > 0) {
         Utils.logImportant(`Skryto ${skrytePocet} oznámení administrátorů`);
     }
+},
+
+// Přidejte novou metodu pro otevření nastavení filtrů:
+openNotificationFilterSettings: function() {
+    // Vytvoříme overlay s editorem filtrů
+    const overlay = document.createElement('div');
+    Object.assign(overlay.style, {
+        position: 'fixed',
+        top: '0',
+        left: '0',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: '10001',
+        flexDirection: 'column'
+    });
+    
+    // Vytvoříme kontejner pro editor
+    const container = document.createElement('div');
+    Object.assign(container.style, {
+        backgroundColor: 'white',
+        padding: '20px',
+        borderRadius: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '15px',
+        width: '400px',
+        maxWidth: '90%'
+    });
+    
+    // Titulek
+    const title = document.createElement('h3');
+    title.textContent = 'Nastavení filtrů notifikací';
+    Object.assign(title.style, {
+        margin: '0 0 10px 0',
+        textAlign: 'center',
+        color: '#333'
+    });
+    
+    // Popisek
+    const description = document.createElement('div');
+    description.innerHTML = 'Zadejte klíčová slova nebo fráze oddělené čárkou. Notifikace obsahující tato slova budou skryty.<br><strong>Poznámka:</strong> Notifikace obsahující "reacted to your post in" nebudou nikdy skryty.';
+    Object.assign(description.style, {
+        fontSize: '14px',
+        color: '#555',
+        marginBottom: '10px',
+        lineHeight: '1.4'
+    });
+    
+    // Textové pole pro filtry
+    const filtersInput = document.createElement('textarea');
+    filtersInput.value = CONFIG.NOTIFICATION_FILTERS.join(', ');
+    Object.assign(filtersInput.style, {
+        width: '100%',
+        height: '100px',
+        padding: '8px',
+        border: '1px solid #ccc',
+        borderRadius: '4px',
+        resize: 'vertical',
+        fontFamily: 'inherit',
+        fontSize: '14px'
+    });
+    
+    // Aktuální seznam filtrovaných notifikací (statistiky)
+    const statsContainer = document.createElement('div');
+    Object.assign(statsContainer.style, {
+        fontSize: '13px',
+        color: '#666',
+        marginTop: '5px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '5px'
+    });
+    
+    const statsTitle = document.createElement('div');
+    statsTitle.textContent = 'Aktuálně aktivní filtry:';
+    statsTitle.style.fontWeight = 'bold';
+    
+    const statsList = document.createElement('ul');
+    Object.assign(statsList.style, {
+        margin: '5px 0',
+        paddingLeft: '20px'
+    });
+    
+    CONFIG.NOTIFICATION_FILTERS.forEach(filter => {
+        const item = document.createElement('li');
+        item.textContent = filter;
+        statsList.appendChild(item);
+    });
+    
+    statsContainer.appendChild(statsTitle);
+    statsContainer.appendChild(statsList);
+    
+    // Tlačítka pro uložení, zrušení a reset
+    const buttonContainer = document.createElement('div');
+    buttonContainer.style.display = 'flex';
+    buttonContainer.style.justifyContent = 'space-between';
+    buttonContainer.style.marginTop = '15px';
+    
+    const saveButton = document.createElement('button');
+    saveButton.textContent = 'Uložit';
+    Object.assign(saveButton.style, {
+        padding: '8px 16px',
+        backgroundColor: '#2ecc71',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+    });
+    
+    const cancelButton = document.createElement('button');
+    cancelButton.textContent = 'Zrušit';
+    Object.assign(cancelButton.style, {
+        padding: '8px 16px',
+        backgroundColor: '#e74c3c',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+    });
+    
+    const resetButton = document.createElement('button');
+    resetButton.textContent = 'Výchozí';
+    Object.assign(resetButton.style, {
+        padding: '8px 16px',
+        backgroundColor: '#3498db',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        fontWeight: 'bold'
+    });
+    
+    buttonContainer.appendChild(resetButton);
+    buttonContainer.appendChild(cancelButton);
+    buttonContainer.appendChild(saveButton);
+    
+    // Sestavení kontejneru
+    container.appendChild(title);
+    container.appendChild(description);
+    container.appendChild(filtersInput);
+    container.appendChild(statsContainer);
+    container.appendChild(buttonContainer);
+    
+    overlay.appendChild(container);
+    
+    // Akce tlačítek
+    saveButton.addEventListener('click', () => {
+        // Zpracování vstupu, rozdělení podle čárky, odstranění mezer
+        const rawFilters = filtersInput.value.split(',');
+        const processedFilters = rawFilters
+            .map(filter => filter.trim())
+            .filter(filter => filter.length > 0);
+        
+        // Uložení nových filtrů
+        this.setNotificationFilters(processedFilters);
+        
+        // Aplikujeme filtry ihned
+        if (!this.state.notificationsHidingDisabled) {
+            this.hideUnwantedNotifications();
+        }
+        
+        // Zavření dialogu
+        document.body.removeChild(overlay);
+    });
+    
+    cancelButton.addEventListener('click', () => {
+        document.body.removeChild(overlay);
+    });
+    
+    resetButton.addEventListener('click', () => {
+        // Resetování na výchozí hodnoty
+        filtersInput.value = "posted in, new member";
+    });
+    
+    // Přidání do stránky
+    document.body.appendChild(overlay);
 },
 
         findSingleExpandButton: function() {
@@ -820,7 +1021,7 @@ addToggleControl: function() {
     Object.assign(eyeButton.style, {
         position: 'fixed',
         bottom: '80px',
-        right: '40px', // Posunuto o 30px doleva
+        right: '35px', // Posunuto o 30px doleva
         width: '32px',
         height: '32px',
         borderRadius: '50%',
@@ -1328,13 +1529,22 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
     'Zapnout/vypnout automatické zvýrazňování nejnovějších komentářů'
 );
     
-    // Přepracované tlačítko pro zapnutí/vypnutí skrývání notifikací
-    const notifButton = createButton(
-        '🔕 Skrývání notifikací: ON', 
-        'rgba(70, 50, 40, 0.95)', // Hnědá - wood finish
-        () => {
+    // Vytvoříme kontejner pro tlačítko a ozubené kolečko
+const notifButtonContainer = document.createElement('div');
+Object.assign(notifButtonContainer.style, {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '5px', 
+    marginBottom: '5px'
+});
+
+const notifButton = createButton(
+    '🔕 Skrývání notifikací: ON', 
+    'rgba(70, 50, 40, 0.95)', // Hnědá - wood finish
+    () => {
         if (this.state.isDisabled) return;
-        // Přepneme stav
+        
+        // Běžný klik - přepne stav
         this.state.notificationsHidingDisabled = !this.state.notificationsHidingDisabled;
         
         // Aktualizujeme text a barvu tlačítka
@@ -1346,14 +1556,66 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
         // Pokud jsme právě zapnuli skrývání, spustíme ho hned
         if (!this.state.notificationsHidingDisabled) {
             this.hideUnwantedNotifications();
-        } else {
-            // Pokud jsme vypnuli, lze případně obnovit skryté notifikace
-            // Tuto část můžeme přeskočit, protože obnovení skrytých notifikací
-            // by mohlo vést k zahlcení uživatele
         }
     },
     'Zapnout/vypnout automatické skrývání nežádoucích notifikací'
 );
+
+// Přidání flexu pro tlačítko notifikací
+Object.assign(notifButton.style, {
+    flex: '1',
+    marginRight: '0'
+});
+
+// Vytvoříme tlačítko ozubeného kolečka pro nastavení
+const notifSettingsButton = document.createElement('div');
+Object.assign(notifSettingsButton.style, {
+    backgroundColor: 'rgba(60, 60, 60, 0.9)',
+    color: 'white',
+    width: '24px',
+    height: '24px',
+    borderRadius: '50%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    fontSize: '14px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+    transition: 'background-color 0.2s, transform 0.2s',
+    marginLeft: '2px'
+});
+
+notifSettingsButton.innerHTML = '⚙️'; // Emoji ozubeného kolečka
+notifSettingsButton.title = 'Nastavení filtrů notifikací';
+
+// Efekty při najetí myší na tlačítko nastavení
+notifSettingsButton.addEventListener('mouseenter', () => {
+    notifSettingsButton.style.backgroundColor = 'rgba(80, 80, 80, 0.9)';
+    notifSettingsButton.style.transform = 'scale(1.1)';
+});
+
+notifSettingsButton.addEventListener('mouseleave', () => {
+    notifSettingsButton.style.backgroundColor = 'rgba(60, 60, 60, 0.9)';
+    notifSettingsButton.style.transform = 'scale(1)';
+});
+
+// Kliknutí na tlačítko nastavení otevře dialog
+notifSettingsButton.addEventListener('click', () => {
+    if (this.state.isDisabled) return;
+    this.openNotificationFilterSettings();
+    
+    // Reset časovače pro skrytí panelu, stejně jako u jiných tlačítek
+    if (hideTimeout) {
+        clearTimeout(hideTimeout);
+    }
+    hideTimeout = setTimeout(() => {
+        hidePanel();
+    }, 30000);
+});
+
+// Přidáme obě tlačítka do kontejneru
+notifButtonContainer.appendChild(notifButton);
+notifButtonContainer.appendChild(notifSettingsButton);
 
 
 // Nové tlačítko pro zapnutí/vypnutí vylepšení obrázků
@@ -1473,7 +1735,7 @@ panel.appendChild(mainToggle);
 panel.appendChild(expandToggle);
 panel.appendChild(highlightToggle); 
 panel.appendChild(colorButton);
-panel.appendChild(notifButton);
+panel.appendChild(notifButtonContainer);
 panel.appendChild(announcementsToggle); 
 panel.appendChild(imageEnhanceToggle);  // NOVÉ tlačítko
 panel.appendChild(debugToggle);
