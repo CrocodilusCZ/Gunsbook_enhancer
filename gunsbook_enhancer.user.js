@@ -212,20 +212,20 @@ addLogoRefreshBehavior: function() {
                 return true; // Už jsme nastavili handler, nepotřebujeme pokračovat
             }
             
-            Utils.logImportant('Nalezeno logo stránky, přidávám funkci pro obnovení stránky');
+            Utils.logImportant('Nalezeno logo stránky, přidávám funkci pro přesměrování na hlavní stránku');
             
             // Označíme, že jsme přidali handler (aby se nepřidával vícekrát)
             logoLink.setAttribute('gb-refresh-handler', 'true');
             
             // Přidáme event listener pro kliknutí
             logoLink.addEventListener('click', function(event) {
-                // Zabráníme standardnímu chování (přesměrování na /)
+                // Zabráníme standardnímu chování (přesměrování na / se zachováním historie)
                 event.preventDefault();
                 
-                // Obnovíme stránku
-                window.location.reload();
+                // Přesměrování na hlavní stránku bez ohledu na to, kde jsme
+                window.location.href = 'https://gunsbook.com/';
                 
-                Utils.log('Obnova stránky po kliknutí na logo');
+                Utils.log('Přesměrování na hlavní stránku Gunsbooku');
             });
             
             return true;
@@ -241,15 +241,19 @@ addLogoRefreshBehavior: function() {
             if (trySetupLogoRefresh()) {
                 // Podařilo se najít a nastavit logo, můžeme ukončit interval
                 clearInterval(logoCheckInterval);
+                Utils.logImportant('Logo bylo úspěšně nalezeno a nastaveno pro přesměrování');
             }
         }, 1000); // Kontrola každou sekundu
         
         // Zrušíme interval po 10 sekundách, pokud se logo nenašlo
         setTimeout(() => {
-            clearInterval(logoCheckInterval);
+            if (logoCheckInterval) {
+                clearInterval(logoCheckInterval);
+                Utils.log('Nepodařilo se najít logo po 10 sekundách, interval zrušen');
+            }
         }, 10000);
     }
-},
+}
 
 // Přidejte novou metodu pro otevření nastavení filtrů:
 openNotificationFilterSettings: function() {
