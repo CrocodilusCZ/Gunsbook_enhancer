@@ -78,6 +78,6 @@ Kliknutím na ikonu oka zobrazíte/skryjete ovládací panel s těmito přepína
 
 ## Autoři
 
-Redsnake
+CrocodilusCZ
 
 Vytvořeno s ❤️ pro komunitu Gunsbook
