@@ -1,18 +1,3 @@
-
-
-// ==UserScript==
-// @name         GunsBook Enhancer
-// @namespace    https://github.com/CrocodilusCZ/
-// @version      1.0.5
-// @description  Rozbalí příspěvky/komentáře, zvýrazní nejnovější komentář a vylepšuje zobrazení obrázků
-// @author       Redsnake
-// @match        https://gunsbook.com/*
-// @grant        none
-// @run-at       document-end
-// @updateURL    https://raw.githubusercontent.com/CrocodilusCZ/Gunsbook_enhancer/master/gunsbook_enhancer.user.js
-// @downloadURL  https://raw.githubusercontent.com/CrocodilusCZ/Gunsbook_enhancer/master/gunsbook_enhancer.user.js
-// ==/UserScript==
-
 (function() {
     'use strict';
 
@@ -29,7 +14,7 @@
         HIGHLIGHT_BORDER: `3px solid ${localStorage.getItem('gb_highlight_border_color') || '#2ecc71'}`,
         // Načtení uložené barvy textu nebo použití výchozí
         HIGHLIGHT_TEXT_COLOR: localStorage.getItem('gb_highlight_text_color') || '#2ecc71',
-        DEBUG: false,                   // Pro běžné debug výpisy - výchozí stav vypnuto
+        DEBUG: true,                   // Pro běžné debug výpisy - výchozí stav vypnuto
         IMPORTANT_LOGS: false,           // Pro důležité výpisy - výchozí stav vypnuto
         NOTIFICATION_FILTERS: JSON.parse(localStorage.getItem('gb_notification_filters')) || ["posted in", "new member"],
 
@@ -100,11 +85,12 @@
     isDisabled: false,
     isProcessing: false,
     clickedButtonIds: new Set(),
-    expandingDisabled: false,  // Stav pro zapnutí/vypnutí rozbalování
+    expandingDisabled: true,  // Stav pro zapnutí/vypnutí rozbalování
     highlightingDisabled: false,  // stav pro zapnutí/vypnutí zvýrazňování (přidána čárka)
     notificationsHidingDisabled: false,  // stav pro zapnutí/vypnutí skrývání notifikací
     imageEnhancementDisabled: false,  //stav pro zapnutí/vypnutí vylepšení obrázků
-    announcementsHidingDisabled: false  // NOVÉ: stav pro zapnutí/vypnutí skrývání oznámení
+    announcementsHidingDisabled: false,  // NOVÉ: stav pro zapnutí/vypnutí skrývání oznámení
+    autoSortDisabled: false, 
 
 
 },
@@ -266,6 +252,134 @@ addLogoRefreshBehavior: function() {
             }
         }, 10000);
     }
+},
+
+// Funkce pro automatické nastavení řazení na "Newest"
+// Vylepšená funkce pro automatické nastavení řazení na "Newest"
+// Zjednodušená funkce pro automatické nastavení řazení na "Newest"
+// Zcela přepracovaná funkce pro automatické řazení komentářů
+autoSetNewestSort: function() {
+    // Pokud je funkce vypnuta, neprovádíme nic
+    if (this.state.isDisabled || this.state.autoSortDisabled) {
+        console.log('[AUTOSORT DEBUG] Funkce je vypnuta');
+        return;
+    }
+    
+    console.log('[AUTOSORT DEBUG] Hledám tlačítko řazení komentářů...');
+    
+    // Použijeme MutationObserver pro dynamické vyhledání tlačítka
+    const sortButtonObserver = new MutationObserver((mutations, observer) => {
+        const sortButton = document.querySelector('[data-testid="buttonSortComment"]');
+        if (sortButton) {
+            console.log('[AUTOSORT DEBUG] Tlačítko řazení nalezeno pomocí MutationObserver');
+            observer.disconnect();
+            this.handleSortButtonClick(sortButton);
+        }
+    });
+    
+    // Nejprve zkusíme najít tlačítko přímo
+    const sortButton = document.querySelector('[data-testid="buttonSortComment"]');
+    if (sortButton) {
+        console.log('[AUTOSORT DEBUG] Tlačítko řazení nalezeno přímo');
+        this.handleSortButtonClick(sortButton);
+        return;
+    }
+    
+    // Pokud tlačítko není nalezeno přímo, začneme sledovat DOM
+    console.log('[AUTOSORT DEBUG] Tlačítko nenalezeno, spouštím MutationObserver');
+    sortButtonObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+    
+    // Nastavíme časovač pro vypnutí observeru po 10 sekundách
+    setTimeout(() => {
+        sortButtonObserver.disconnect();
+        console.log('[AUTOSORT DEBUG] MutationObserver ukončen po timeoutu');
+    }, 10000);
+},
+
+// Nová pomocná funkce pro zpracování tlačítka řazení
+// Vylepšená funkce pro skrytou manipulaci s řazením komentářů
+handleSortButtonClick: function(sortButton) {
+    const buttonText = sortButton.textContent.trim().toLowerCase();
+    console.log(`[AUTOSORT DEBUG] Text tlačítka řazení: "${buttonText}"`);
+    
+    // Pokud už obsahuje "newest", jsme hotovi
+    if (buttonText.includes('newest')) {
+        console.log('[AUTOSORT DEBUG] Řazení je již nastaveno na Newest');
+        return;
+    }
+    
+    // Vytvoříme skrytý styl pro menu před kliknutím
+    const hideMenuStyle = document.createElement('style');
+    hideMenuStyle.textContent = `
+        [data-testid="menusortType"] {
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+        [data-testid="menusortType"] * {
+            visibility: hidden !important;
+        }
+    `;
+    document.head.appendChild(hideMenuStyle);
+    
+    // Klikneme na tlačítko pro otevření menu (teď už bude neviditelné díky CSS)
+    console.log('[AUTOSORT DEBUG] Klikám na tlačítko řazení... (neviditelný režim)');
+    sortButton.click();
+    
+    // Vytvoříme funkci pro hledání a kliknutí na položku "Newest"
+    const findAndClickNewestOption = () => {
+        // Hledáme menu podle data-testid
+        const sortMenu = document.querySelector('[data-testid="menusortType"]');
+        if (sortMenu) {
+            console.log('[AUTOSORT DEBUG] Menu nalezeno (neviditelné)');
+            
+            // Hledáme položku s value="newest" - přesný selektor z HTML
+            const newestOption = sortMenu.querySelector('[role="menuitem"][value="newest"], [data-value="newest"]');
+            if (newestOption) {
+                console.log('[AUTOSORT DEBUG] Nalezena položka Newest, klikám...');
+                setTimeout(() => {
+                    newestOption.click();
+                    console.log('[AUTOSORT DEBUG] Úspěšně nastaveno řazení na Newest');
+                    setTimeout(() => document.head.removeChild(hideMenuStyle), 100);
+                }, 0);
+                return true;
+            } else {
+                console.log('[AUTOSORT DEBUG] Položka Newest nenalezena v menu');
+                
+                // Pokud nenajdeme podle value, zkusíme podle textu
+                const menuItems = sortMenu.querySelectorAll('[role="menuitem"]');
+                for (const item of menuItems) {
+                    if (item.textContent.toLowerCase().includes('newest')) {
+                        console.log('[AUTOSORT DEBUG] Nalezena položka podle textu obsahující "newest"');
+                        setTimeout(() => {
+                            item.click();
+                            setTimeout(() => document.head.removeChild(hideMenuStyle), 100);
+                        }, 0);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    };
+    
+    // Počkáme na otevření menu a pak ihned klikneme na položku Newest
+    setTimeout(() => {
+        if (!findAndClickNewestOption()) {
+            console.log('[AUTOSORT DEBUG] Menu se neotevřelo, zkouším druhý pokus...');
+            
+            // Pokud se menu neotevřelo, zkusíme znovu
+            setTimeout(() => {
+                if (!findAndClickNewestOption()) {
+                    // Odstraníme styl, pokud se ani na druhý pokus nepovedlo
+                    document.head.removeChild(hideMenuStyle);
+                }
+            }, 500);
+        }
+    }, 100);
 },
 
 // Přidejte novou metodu pro otevření nastavení filtrů:
@@ -1062,6 +1176,63 @@ enhanceImages: function() {
     }
 },
 
+// Přidání nové funkce pro hlídání nově načtených příspěvků
+watchForNewPosts: function() {
+    // Vytvoříme set pro sledování již zpracovaných příspěvků
+    if (!this.state.processedPostIds) {
+        this.state.processedPostIds = new Set();
+    }
+    
+    // Najdeme všechny příspěvky s komentáři
+    const allPosts = document.querySelectorAll('div[data-eid^="feed.entities.feed."]');
+    
+    let newPostsFound = false;
+    
+    // Procházíme všechny nalezené příspěvky
+    allPosts.forEach(post => {
+        // Získáme ID příspěvku
+        const postId = post.getAttribute('data-eid');
+        
+        // Pokud jsme tento příspěvek již zpracovali, přeskočíme jej
+        if (this.state.processedPostIds.has(postId)) {
+            return;
+        }
+        
+        // Označíme příspěvek jako zpracovaný
+        this.state.processedPostIds.add(postId);
+        newPostsFound = true;
+        
+        // Zkontrolujeme, zda se v příspěvku nachází tlačítko pro řazení komentářů
+        const sortButtonCheck = () => {
+            const sortButton = post.querySelector('[data-testid="buttonSortComment"]');
+            if (sortButton) {
+                console.log(`[AUTOSORT DEBUG] Nalezeno tlačítko řazení v novém příspěvku ${postId}`);
+                
+                // Nastavíme řazení na Newest pro tento příspěvek
+                this.handleSortButtonClick(sortButton);
+            } else {
+                // Pokud není tlačítko nalezeno hned, zkusíme to později - možná se teprve načítá
+                setTimeout(() => {
+                    const retryButton = post.querySelector('[data-testid="buttonSortComment"]');
+                    if (retryButton) {
+                        console.log(`[AUTOSORT DEBUG] Nalezeno tlačítko řazení při druhém pokusu v příspěvku ${postId}`);
+                        this.handleSortButtonClick(retryButton);
+                    }
+                }, 1000);
+            }
+        };
+        
+        // Spustíme kontrolu pouze pokud je funkce řazení zapnutá
+        if (!this.state.isDisabled && !this.state.autoSortDisabled) {
+            sortButtonCheck();
+        }
+    });
+    
+    if (newPostsFound) {
+        console.log(`[AUTOSORT DEBUG] Nalezeny nové příspěvky, celkový počet sledovaných: ${this.state.processedPostIds.size}`);
+    }
+},
+
        // Upravená funkce processPosts, která bere v úvahu nastavení highlightingDisabled
 processPosts: async function() {
     if (this.state.isDisabled || this.state.isProcessing) return;
@@ -1369,18 +1540,18 @@ imageEnhanceToggle.style.opacity = this.state.isDisabled ? '0.5' : '1';
     );
     
     // Tlačítko pro zapnutí/vypnutí automatického rozbalování komentářů
-    const expandToggle = createButton(
-        '🔄 Auto rozbalování: ON', 
-        'rgba(42, 55, 70, 0.95)', // Tmavě modrá - navy blue
-        () => {
-            if (this.state.isDisabled) return;
-            this.state.expandingDisabled = !this.state.expandingDisabled;
-            expandToggle.textContent = `🔄 Auto rozbalování: ${this.state.expandingDisabled ? 'OFF' : 'ON'}`;
-            expandToggle.style.backgroundColor = this.state.expandingDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(42, 55, 70, 0.95)';
-            Utils.logImportant(`Automatické rozbalování ${this.state.expandingDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
-        },
-        'Zapnout/vypnout automatické rozbalování komentářů'
-    );
+const expandToggle = createButton(
+    '🔄 Auto rozbalování: OFF', // Změna na OFF, aby odpovídalo výchozímu stavu
+    'rgba(80, 40, 30, 0.95)', // Změna na červenou (barva pro vypnutý stav)
+    () => {
+        if (this.state.isDisabled) return;
+        this.state.expandingDisabled = !this.state.expandingDisabled;
+        expandToggle.textContent = `🔄 Auto rozbalování: ${this.state.expandingDisabled ? 'OFF' : 'ON'}`;
+        expandToggle.style.backgroundColor = this.state.expandingDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(42, 55, 70, 0.95)';
+        Utils.logImportant(`Automatické rozbalování ${this.state.expandingDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
+    },
+    'Zapnout/vypnout automatické rozbalování komentářů'
+);
 
     // Tlačítko pro nastavení barev
     const colorButton = createButton(
@@ -1879,6 +2050,25 @@ const imageEnhanceToggle = createButton(
     'Zapnout/vypnout automatické vylepšení zobrazení obrázků'
 );
 
+// A do addToggleControl přidejte nové tlačítko
+const autoSortToggle = createButton(
+    '🔄 Auto řazení: ON', 
+    'rgba(60, 65, 70, 0.95)', // Tmavě šedá
+    () => {
+        if (this.state.isDisabled) return;
+        this.state.autoSortDisabled = !this.state.autoSortDisabled;
+        autoSortToggle.textContent = `🔄 Auto řazení: ${this.state.autoSortDisabled ? 'OFF' : 'ON'}`;
+        autoSortToggle.style.backgroundColor = this.state.autoSortDisabled ? 'rgba(80, 40, 30, 0.95)' : 'rgba(60, 65, 70, 0.95)';
+        Utils.logImportant(`Automatické nastavení řazení ${this.state.autoSortDisabled ? 'vypnuto' : 'zapnuto'} uživatelem.`);
+        
+        // Pokud zapneme funkci, rovnou ji spustíme
+        if (!this.state.autoSortDisabled) {
+            this.autoSetNewestSort();
+        }
+    },
+    'Zapnout/vypnout automatické nastavení řazení na Newest'
+);
+
 // Nové tlačítko pro zapnutí/vypnutí skrývání oznámení administrátorů
 const announcementsToggle = createButton(
     '📢 Skrývání oznámení: ON', 
@@ -1908,10 +2098,12 @@ const announcementsToggle = createButton(
     },
     'Zapnout/vypnout automatické skrývání oznámení administrátorů'
 );
+
+
 // Tlačítko pro zapnutí/vypnutí debug režimu
 const debugToggle = createButton(
-    '🐛 Debug: OFF',
-    'rgba(40, 40, 40, 0.95)', // Taktická černá pro vypnutý stav
+    '🐛 Debug: ON',
+    'rgba(70, 35, 35, 0.95)', // Tmavě červená pro zapnutý stav
     () => {
         // Přepneme obě hodnoty najednou
         CONFIG.DEBUG = !CONFIG.DEBUG;
@@ -1919,7 +2111,7 @@ const debugToggle = createButton(
         
         // Aktualizujeme text a barvu tlačítka
         debugToggle.textContent = `🐛 Debug: ${CONFIG.DEBUG ? 'ON' : 'OFF'}`;
-        debugToggle.style.backgroundColor = CONFIG.DEBUG ? 'rgba(70, 35, 35, 0.95)' : 'rgba(40, 40, 40, 0.95)'; // Tmavě červená při zapnutí
+        debugToggle.style.backgroundColor = CONFIG.DEBUG ? 'rgba(70, 35, 35, 0.95)' : 'rgba(40, 40, 40, 0.95)';
         
         if (CONFIG.IMPORTANT_LOGS) {
             Utils.logImportant(`Debug režim ${CONFIG.DEBUG ? 'zapnut' : 'vypnut'} uživatelem.`);
@@ -1965,6 +2157,7 @@ panel.appendChild(mainToggle);
 panel.appendChild(expandToggle);
 panel.appendChild(highlightButtonContainer); 
 panel.appendChild(notifButtonContainer);
+panel.appendChild(autoSortToggle);
 panel.appendChild(announcementsToggle); 
 panel.appendChild(imageEnhanceToggle);  // NOVÉ tlačítko
 panel.appendChild(debugToggle);
@@ -2009,6 +2202,80 @@ window.addEventListener('scroll', () => {
                   this.hideUnwantedNotifications();
               }
             }, 2000);
+
+            // Funkce pro automatické řazení viditelných příspěvků na základě události skrolování
+let isProcessingSortQueue = false;
+let pendingSortPosts = [];
+let sortDebounceTimer;
+
+// Funkce pro efektivní zpracování fronty příspěvků k seřazení
+const processSortQueue = async () => {
+    if (isProcessingSortQueue || pendingSortPosts.length === 0) return;
+    
+    isProcessingSortQueue = true;
+    
+    // Zpracování příspěvků jeden po druhém
+    while (pendingSortPosts.length > 0) {
+        const post = pendingSortPosts.shift();
+        const sortButton = post.querySelector('[data-testid="buttonSortComment"]');
+        
+        if (sortButton) {
+            // Nejprve zkontrolujeme, zda už není nastaveno "newest"
+            const buttonText = sortButton.textContent.trim().toLowerCase();
+            if (!buttonText.includes('newest')) {
+                console.log(`[AUTOSORT DEBUG] Řazení příspěvku po skrolování: ${post.getAttribute('data-eid')}`);
+                await new Promise(resolve => {
+                    this.handleSortButtonClick(sortButton);
+                    // Počkáme, než se řazení dokončí
+                    setTimeout(resolve, 700);
+                });
+            }
+        }
+    }
+    
+    isProcessingSortQueue = false;
+};
+
+// Debounced funkce pro kontrolu viditelných příspěvků
+const checkVisiblePostsForSorting = Utils.debounce(() => {
+    if (this.state.isDisabled || this.state.autoSortDisabled) return;
+    
+    pendingSortPosts = [];
+    
+    // Najdeme všechny aktuálně viditelné příspěvky
+    const allPosts = document.querySelectorAll('div[data-eid^="feed.entities.feed."]');
+    
+    allPosts.forEach(post => {
+        const rect = post.getBoundingClientRect();
+        // Je příspěvek viditelný?
+        if (rect.top < window.innerHeight && rect.bottom > 0) {
+            pendingSortPosts.push(post);
+        }
+    });
+    
+    if (pendingSortPosts.length > 0) {
+        console.log(`[AUTOSORT DEBUG] Nalezeno ${pendingSortPosts.length} viditelných příspěvků k seřazení`);
+        processSortQueue();
+    }
+}, 500);
+
+// Přidáme posluchače události skrolování
+window.addEventListener('scroll', () => {
+    if (!this.state.isDisabled && !this.state.autoSortDisabled) {
+        // Zrušíme předchozí časovač, pokud existuje
+        if (sortDebounceTimer) {
+            clearTimeout(sortDebounceTimer);
+        }
+        
+        // Nastavíme nový časovač - počkáme, až se skrolování zastaví
+        sortDebounceTimer = setTimeout(() => {
+            checkVisiblePostsForSorting();
+        }, 300);
+    }
+}, { passive: true });
+
+// Spustíme prvotní kontrolu po načtení stránky
+setTimeout(checkVisiblePostsForSorting, 1500);
             
             // PŘIDAT ZDE - První část kódu
             // Pravidelná kontrola a skrytí oznámení administrátorů
@@ -2055,8 +2322,28 @@ setTimeout(() => {
         this.hideAdminAnnouncements();
     }
 }, 1000);
-        
-            Utils.logImportant('Inicializace dokončena.');
+
+// PŘIDAT ZDE - Kód pro automatické řazení komentářů
+// Řazení komentářů spustit jen při načtení stránky
+setTimeout(() => {
+    // Pokud není zakázáno automatické řazení, aplikujeme ho
+    if (!this.state.autoSortDisabled) {
+        this.autoSetNewestSort();
+    }
+}, 1000); // Dáme stránce sekundu na načtení
+
+// A také při změně URL
+let lastUrl = window.location.href;
+new MutationObserver(() => {
+    if (lastUrl !== window.location.href) {
+        lastUrl = window.location.href;
+        if (!this.state.autoSortDisabled) {
+            setTimeout(() => this.autoSetNewestSort(), 1000);
+        }
+    }
+}).observe(document, {subtree: true, childList: true});
+
+Utils.logImportant('Inicializace dokončena.');
         }
     };
 
