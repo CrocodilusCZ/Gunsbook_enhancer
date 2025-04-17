@@ -79,5 +79,3 @@ Kliknutím na ikonu oka zobrazíte/skryjete ovládací panel s těmito přepína
 ## Autoři
 
 CrocodilusCZ
-
-Vytvořeno s ❤️ pro komunitu Gunsbook
